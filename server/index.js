@@ -27,10 +27,19 @@ app.get('/api/spending-data', async (req, res) => {
     // Row 13: Category headers, Row 14: Subcategory headers, Rows 15-26: Monthly data
     const range = 'Categories By Month!M13:BL26';
 
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-    });
+    // Also fetch income data from column AU, rows 15-26 (Dec to Jan)
+    const incomeRange = 'Categories By Month!AU15:AU26';
+
+    const [response, incomeResponse] = await Promise.all([
+      sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range,
+      }),
+      sheets.spreadsheets.values.get({
+        spreadsheetId,
+        range: incomeRange,
+      })
+    ]);
 
     const rows = response.data.values;
 
@@ -67,8 +76,31 @@ app.get('/api/spending-data', async (req, res) => {
       console.log(`  Col ${i}: Cat="${cat}" | Subcat="${subcat}"`);
     }
 
+    // Parse income data from column AU (rows 15-26, Dec to Jan)
+    const incomeData = incomeResponse.data.values || [];
+    const incomeByMonth = {};
+
+    // Income data comes in reverse order (Dec at index 0, Jan at index 11)
+    // We need to reverse it to match Jan-Dec order
+    const reversedIncome = [...incomeData].reverse();
+
+    reversedIncome.forEach((row, index) => {
+      const rawValue = parseFloat(String(row[0]).replace(/,/g, '')) || 0;
+      // Income values are positive in the sheet
+      const value = Math.abs(rawValue);
+
+      // Match with month names from the main data
+      // We'll add the month name when processing the main data
+      incomeByMonth[index] = value;
+    });
+
     // Transform the data to match the app's expected format
     const transformedData = transformSheetData(rows);
+
+    // Add income data to the months array
+    transformedData.months.forEach((monthEntry, index) => {
+      monthEntry.income = incomeByMonth[index] || 0;
+    });
 
     res.json(transformedData);
   } catch (error) {

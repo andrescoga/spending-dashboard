@@ -628,6 +628,10 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap }) 
       else if (focusGroup === "Other") row.value = groups.filter((g) => !topGroups.includes(g)).reduce((s, g) => s + Number(m[g] ?? 0), 0);
       else row.value = Number(m[focusGroup] ?? 0);
       row.value = scale === "percent" ? (monthTotal > 0 ? (row.value / monthTotal) * 100 : 0) : row.value;
+
+      // Add income data from API
+      row.income = Number(m.income ?? 0);
+
       return row;
     });
 
@@ -686,6 +690,7 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap }) 
                 <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => (scale === "percent" ? `${Math.round(v)}%` : formatCurrency(v))} />
                 <Tooltip content={<TooltipBox scale={scale} />} />
                 <Area type="monotone" dataKey="value" stroke={colorFor(focusGroup)} fill={colorFor(focusGroup)} fillOpacity={0.18} strokeWidth={2} />
+                <Line type="monotone" dataKey="income" stroke="rgba(78, 205, 196, 0.4)" strokeWidth={2} dot={false} strokeDasharray="5 5" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
