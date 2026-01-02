@@ -233,14 +233,11 @@ const THRESHOLDS = {
   },
 };
 
-// Months per year for averaging
-const MONTHS_PER_YEAR = 12;
-
 // Calculated insights helpers (to replace hardcoded values)
 const INSIGHTS = {
-  calculateActualRent: (homeData) => {
+  calculateActualRent: (homeData, monthCount) => {
     const rentTotal = homeData.reduce((sum, m) => sum + (m['Rent & Insurance'] || 0), 0);
-    const avgRent = rentTotal / MONTHS_PER_YEAR;
+    const avgRent = monthCount > 0 ? rentTotal / monthCount : 0;
     return avgRent;
   },
   calculateInterestPaid: (financialData) => {
@@ -261,6 +258,53 @@ const INSIGHTS = {
     });
     return { month: maxMonth, value: maxValue };
   },
+  findLowestMonth: (data, subcategory) => {
+    let minValue = Infinity;
+    let minMonth = '';
+    data.forEach(m => {
+      const value = m[subcategory] || 0;
+      if (value > 0 && value < minValue) {
+        minValue = value;
+        minMonth = m.month;
+      }
+    });
+    return minValue === Infinity ? { month: '', value: 0 } : { month: minMonth, value: minValue };
+  },
+  calculateAverage: (data, subcategory) => {
+    const total = data.reduce((sum, m) => sum + (m[subcategory] || 0), 0);
+    return data.length > 0 ? total / data.length : 0;
+  }
+};
+
+// Date utilities for parsing and extracting year ranges
+const DATE_UTILS = {
+  parseMonth: (monthStr) => {
+    const parts = monthStr.trim().split(/\s+/);
+    const monthName = parts[0];
+    const year = parts[1] ? parseInt(parts[1]) : new Date().getFullYear();
+
+    const monthMap = {
+      'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+      'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+    };
+
+    return { year, month: monthMap[monthName] ?? 0, monthName };
+  },
+
+  getDateRange: (monthsData) => {
+    if (!monthsData || monthsData.length === 0) {
+      return { startYear: null, endYear: null, yearLabel: '', monthCount: 0 };
+    }
+
+    const years = monthsData.map(m => DATE_UTILS.parseMonth(m.month).year);
+    const startYear = Math.min(...years);
+    const endYear = Math.max(...years);
+    const monthCount = monthsData.length;
+
+    const yearLabel = startYear === endYear ? `${startYear}` : `${startYear}-${endYear}`;
+
+    return { startYear, endYear, yearLabel, monthCount };
+  }
 };
 
 // Accessibility labels
@@ -529,7 +573,7 @@ function CategoryTab({ title, data, subcats, palette, insights }) {
       }}>
         {subcats.map(cat => {
           const percentage = grandTotal > 0 ? ((totals[cat] / grandTotal) * 100).toFixed(1) : '0';
-          const avgMonthlyForCat = totals[cat] / MONTHS_PER_YEAR;
+          const avgMonthlyForCat = totals[cat] / data.length;
           return (
             <Panel key={cat} title={cat} subtitle="">
               <SubcategorySummaryCard
@@ -570,11 +614,23 @@ function CategoryTab({ title, data, subcats, palette, insights }) {
 }
 
 // ============ OVERVIEW TAB ============
-function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap }) {
+function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, categoryData }) {
   const [mode, setMode] = useState("stacked");
   const [scale, setScale] = useState("absolute");
   const [topN, setTopN] = useState(THRESHOLDS.topCategories.default);
   const [focusGroup, setFocusGroup] = useState("All");
+
+  // Calculate dynamic insights
+  const actualRent = useMemo(() => {
+    const homeCategory = categoryData["Home"] || [];
+    const rentTotal = homeCategory.reduce((sum, m) => sum + (m['Rent & Insurance'] || 0), 0);
+    return monthsData.length > 0 ? rentTotal / monthsData.length : 0;
+  }, [categoryData, monthsData]);
+
+  const interestPaid = useMemo(() => {
+    const financialCategory = categoryData["Financial"] || [];
+    return financialCategory.reduce((sum, m) => sum + (m['Interest Charged'] || 0), 0);
+  }, [categoryData]);
 
   // Handle empty data
   if (!monthsData || monthsData.length === 0 || !groupMap || Object.keys(groupMap).length === 0) {
@@ -723,13 +779,13 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap }) 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
             <div style={{ padding: "16px", borderRadius: 12, background: "rgba(255,107,107,0.08)", border: "1px solid rgba(255,107,107,0.15)" }}>
               <div style={{ color: "#ff6b6b", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Actual Rent</div>
-              <div style={{ color: "#fff", fontSize: 22, fontWeight: 800 }}>~$859/mo</div>
-              <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>After Cynthia's ~$870 contribution</div>
+              <div style={{ color: "#fff", fontSize: 22, fontWeight: 800 }}>{formatCurrency(actualRent)}/mo</div>
+              <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>Average monthly after split</div>
             </div>
             <div style={{ padding: "16px", borderRadius: 12, background: "rgba(170,150,218,0.08)", border: "1px solid rgba(170,150,218,0.15)" }}>
               <div style={{ color: "#aa96da", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Interest Paid</div>
-              <div style={{ color: "#fff", fontSize: 22, fontWeight: 800 }}>$1,334</div>
-              <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>Priority: pay down high-interest debt</div>
+              <div style={{ color: "#fff", fontSize: 22, fontWeight: 800 }}>{formatCurrency(interestPaid)}</div>
+              <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>Total interest charged</div>
             </div>
           </div>
         </Panel>
@@ -749,6 +805,25 @@ function GivingTab({ categoryData }) {
     categoryData.forEach(m => { subcats.forEach(c => t[c] += m[c] || 0); });
     return t;
   }, [excludeFamily, categoryData]);
+
+  // Calculate dynamic insights
+  const familyCarePeaks = useMemo(() => {
+    return categoryData
+      .map(m => ({ month: m.month, value: m['Family Care'] || 0 }))
+      .filter(m => m.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 3);
+  }, [categoryData]);
+
+  const charityTotal = useMemo(() =>
+    categoryData.reduce((sum, m) => sum + (m['Charity'] || 0), 0),
+    [categoryData]
+  );
+
+  const giftsPeak = useMemo(() =>
+    INSIGHTS.findPeakMonth(categoryData, 'Gifts'),
+    [categoryData]
+  );
 
   const chartData = useMemo(() => excludeFamily ? categoryData.map(m => ({ month: m.month, "Charity": m["Charity"], "Gifts": m["Gifts"] })) : categoryData, [excludeFamily, categoryData]);
   const totalFamilyCare = categoryData.reduce((s, m) => s + (m["Family Care"] || 0), 0);
@@ -805,7 +880,7 @@ function GivingTab({ categoryData }) {
               <span style={{ color: "#fff", fontSize: 20, fontWeight: 800 }}>{formatCurrency(totals[cat])}</span>
             </div>
             <div style={{ color: "#666", fontSize: 11 }}>{grandTotal > 0 ? ((totals[cat] / grandTotal) * 100).toFixed(1) : 0}% of total</div>
-            <div style={{ color: "#888", fontSize: 11, marginTop: 4 }}>Avg: {formatCurrency(totals[cat] / 12)}/mo</div>
+            <div style={{ color: "#888", fontSize: 11, marginTop: 4 }}>Avg: {formatCurrency(totals[cat] / chartData.length)}/mo</div>
           </Panel>
         ))}
       </div>
@@ -813,16 +888,19 @@ function GivingTab({ categoryData }) {
         <Panel title="Giving Insights" subtitle="">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
             <div>
-              <div style={{ color: "#ff6b6b", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Family Care Payments</div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Mar 2025</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{formatCurrency(14785)}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Aug 2025</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{formatCurrency(6000)}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Jan 2025</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{formatCurrency(1050)}</span></div>
+              <div style={{ color: "#ff6b6b", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Top Family Care Payments</div>
+              {familyCarePeaks.map((peak, idx) => (
+                <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <span style={{ color: "#aaa", fontSize: 13 }}>{peak.month}</span>
+                  <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{formatCurrency(peak.value)}</span>
+                </div>
+              ))}
             </div>
             <div>
               <div style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Key Stats</div>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Total Family Care YTD</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{formatCurrency(totalFamilyCare)}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Monthly Charity</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{formatCurrency(178 / 12)}/mo</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Gifts Peak</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>Jul 2025 ({formatCurrency(400)})</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Monthly Charity</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{formatCurrency(charityTotal / chartData.length)}/mo</span></div>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Gifts Peak</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{giftsPeak.month} ({formatCurrency(giftsPeak.value)})</span></div>
             </div>
           </div>
         </Panel>
@@ -1052,6 +1130,9 @@ export default function SpendingDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Extract date range from data for dynamic title
+  const dateRange = useMemo(() => DATE_UTILS.getDateRange(monthsData), [monthsData]);
+
   // Fetch data from Google Sheets API
   useEffect(() => {
     const fetchData = async () => {
@@ -1199,14 +1280,14 @@ export default function SpendingDashboard() {
               color: COLORS.white,
               letterSpacing: "-0.5px"
             }}>
-              2025 Spending Analysis
+              {dateRange.yearLabel ? `${dateRange.yearLabel} Spending Analysis` : 'Spending Analysis'}
             </h1>
             <p style={{
               margin: `${SPACING.sm}px 0 0`,
               color: COLORS.gray[800],
               fontSize: FONT_SIZE.md
             }}>
-              NET spending after credits • Transfers excluded
+              NET spending after credits • Transfers excluded • {dateRange.monthCount} months
             </p>
           </div>
         {activeTab === "overview" && (
@@ -1247,7 +1328,7 @@ export default function SpendingDashboard() {
           ))}
         </div>
 
-        {activeTab === "overview" && <OverviewTab excludeFamily={excludeFamily} monthsData={monthsData} givingCategories={categoryData["Giving"] || []} groupMap={groupMap} />}
+        {activeTab === "overview" && <OverviewTab excludeFamily={excludeFamily} monthsData={monthsData} givingCategories={categoryData["Giving"] || []} groupMap={groupMap} categoryData={categoryData} />}
 
         {activeTab === "food" && (
           <CategoryTab
