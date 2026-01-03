@@ -347,7 +347,7 @@ function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
 // ============ REUSABLE CHART COMPONENTS ============
 
-const CategoryBarChart = React.memo(({ data, subcats, palette, viewMode, scale = "absolute" }) => {
+const CategoryBarChart = React.memo(({ data, subcats, palette, viewMode }) => {
   return (
     <div style={{ width: "100%", height: CHART.height.default }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -360,9 +360,9 @@ const CategoryBarChart = React.memo(({ data, subcats, palette, viewMode, scale =
           <XAxis dataKey="month" {...CHART_STYLES.xAxis} />
           <YAxis
             {...CHART_STYLES.yAxis}
-            tickFormatter={scale === "percent" ? (v) => `${Math.round(v)}%` : formatCurrency}
+            tickFormatter={formatCurrency}
           />
-          <Tooltip content={<TooltipBox scale={scale} />} />
+          <Tooltip content={<TooltipBox />} />
           <Legend {...CHART_STYLES.legend} />
           {subcats.map((key) => (
             <Bar
@@ -382,7 +382,7 @@ const CategoryBarChart = React.memo(({ data, subcats, palette, viewMode, scale =
 });
 CategoryBarChart.displayName = 'CategoryBarChart';
 
-const CategoryLineChart = React.memo(({ data, subcats, palette, scale = "absolute" }) => {
+const CategoryLineChart = React.memo(({ data, subcats, palette }) => {
   return (
     <div style={{ width: "100%", height: CHART.height.default }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -395,9 +395,9 @@ const CategoryLineChart = React.memo(({ data, subcats, palette, scale = "absolut
           <XAxis dataKey="month" {...CHART_STYLES.xAxis} />
           <YAxis
             {...CHART_STYLES.yAxis}
-            tickFormatter={scale === "percent" ? (v) => `${Math.round(v)}%` : formatCurrency}
+            tickFormatter={formatCurrency}
           />
-          <Tooltip content={<TooltipBox scale={scale} />} />
+          <Tooltip content={<TooltipBox />} />
           <Legend {...CHART_STYLES.legend} />
           {subcats.map((key) => (
             <Line
@@ -572,7 +572,7 @@ function CategoryTab({ title, data, subcats, palette, insights }) {
         background: `rgba(255,255,255,${OPACITY.surface.level0})`,
         border: `1px solid rgba(255,255,255,${OPACITY.surface.level3})`
       }}>
-        <ControlPill label="View" value={viewMode} setValue={handleViewModeChange} options={["stacked", "grouped"]} />
+        <ControlPill value={viewMode} setValue={handleViewModeChange} options={["stacked", "grouped"]} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACING['4xl'] }}>
         <Panel title={`${title} by Month`} subtitle="NET spending by subcategory">
@@ -631,9 +631,7 @@ function CategoryTab({ title, data, subcats, palette, insights }) {
 }
 
 // ============ OVERVIEW TAB ============
-function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, categoryData }) {
-  const [mode, setMode] = useState("stacked");
-  const [scale, setScale] = useState("absolute");
+function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCategories, groupMap, categoryData, theme = "dark" }) {
   const [topN, setTopN] = useState(THRESHOLDS.topCategories.default);
   const [focusGroup, setFocusGroup] = useState("All");
   const [chartType, setChartType] = useState("bars");
@@ -689,9 +687,9 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
     const dataForBars = filteredMonths.map((m) => {
       const row = { month: m.month };
       const monthTotal = groups.reduce((s, g) => s + Number(m[g] ?? 0), 0);
-      topGroups.forEach((g) => { const v = Number(m[g] ?? 0); row[g] = scale === "percent" ? (monthTotal > 0 ? (v / monthTotal) * 100 : 0) : v; });
+      topGroups.forEach((g) => { const v = Number(m[g] ?? 0); row[g] = v; });
       const rest = groups.filter((g) => !topGroups.includes(g)).reduce((s, g) => s + Number(m[g] ?? 0), 0);
-      row["Other"] = scale === "percent" ? (monthTotal > 0 ? (rest / monthTotal) * 100 : 0) : rest;
+      row["Other"] = rest;
       row.__total = monthTotal;
       return row;
     });
@@ -702,7 +700,6 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
       if (focusGroup === "All") row.value = monthTotal;
       else if (focusGroup === "Other") row.value = groups.filter((g) => !topGroups.includes(g)).reduce((s, g) => s + Number(m[g] ?? 0), 0);
       else row.value = Number(m[focusGroup] ?? 0);
-      row.value = scale === "percent" ? (monthTotal > 0 ? (row.value / monthTotal) * 100 : 0) : row.value;
 
       // Add income data from API
       row.income = Number(m.income ?? 0);
@@ -711,7 +708,7 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
     });
 
     return { groups, totalsByGroup, topGroups, dataForBars, dataForArea, monthlyTotals, spikes };
-  }, [topN, scale, focusGroup, excludeFamily, monthsData, givingCategories, groupMap]);
+  }, [topN, focusGroup, excludeFamily, monthsData, givingCategories, groupMap]);
 
   const activeSeries = [...topGroups, "Other"];
   const colorFor = useCallback((key) => {
@@ -781,75 +778,56 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
     return { value: max, month: month?.month };
   }, [monthlyTotals]);
 
+  // Calculate lowest month
+  const lowestMonth = useMemo(() => {
+    const min = Math.min(...monthlyTotals.map(m => m.total));
+    const month = monthlyTotals.find(m => m.total === min);
+    return { value: min, month: month?.month };
+  }, [monthlyTotals]);
+
+  // Calculate monthly surplus/deficit
+  const monthlySurplus = useMemo(() => {
+    const totalExpenses = monthlyTotals.reduce((s, m) => s + m.total, 0);
+    const avgIncome = monthsData.length > 0 ? totalIncome / monthsData.length : 0;
+    const avgExpenses = monthsData.length > 0 ? totalExpenses / monthsData.length : 0;
+    return avgIncome - avgExpenses;
+  }, [monthlyTotals, totalIncome, monthsData]);
+
   return (
     <>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: 22, padding: "16px 18px", borderRadius: 16, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-        <ControlPill label="Chart" value={chartType} setValue={setChartType} options={["bars", "breakdown", "vs income"]} />
-        <ControlPill label="View" value={mode} setValue={setMode} options={["stacked", "grouped"]} />
-        <ControlPill label="Scale" value={scale} setValue={setScale} options={["absolute", "percent"]} />
-        <ControlPill label="Income" value={showIncome ? "show" : "hide"} setValue={(v) => setShowIncome(v === "show")} options={["show", "hide"]} />
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 12, background: "rgba(255,255,255,0.03)" }}>
-          <div style={{ color: "#888", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>Top</div>
-          <input type="range" min={3} max={10} value={topN} onChange={(e) => setTopN(Number(e.target.value))} style={{ width: 120 }} />
-          <div style={{ color: "#fff", fontSize: 12, fontWeight: 800, width: 22, textAlign: "right" }}>{topN}</div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 12, background: "rgba(255,255,255,0.03)" }}>
-          <div style={{ color: "#888", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>Focus</div>
-          <select value={focusGroup} onChange={(e) => setFocusGroup(e.target.value)} style={{ background: "rgba(0,0,0,0.25)", color: "#fff", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 10, padding: "8px 10px", fontSize: 13, outline: "none" }}>
-            <option value="All">All (Total)</option>
-            {topGroups.map((g) => <option key={g} value={g}>{g}</option>)}
-            <option value="Other">Other</option>
-          </select>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 18, alignItems: "start" }}>
-        <Panel
-          title={
-            chartType === "bars"
-              ? `Month comparison (${scale === "percent" ? "% of month" : "NET dollars"})`
-              : chartType === "breakdown"
-              ? "Total Breakdown by Group"
-              : "Income vs Expenses"
-          }
-          subtitle={
-            chartType === "bars"
-              ? (mode === "stacked" ? "Stacked: composition by month" : "Grouped: side-by-side")
-              : chartType === "breakdown"
-              ? "All-time spending distribution"
-              : "Each group as % of total income (with savings if applicable)"
-          }
-        >
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(12, 1fr)",
+        gap: "0",
+        marginBottom: "0"
+      }}>
+        <div style={{ gridColumn: "span 8" }}>
+          <Panel
+            title={chartType === "bars" ? "Month Comparison" : "Income vs Expenses"}
+            subtitle={chartType === "bars" ? "NET spending by category" : "Spending as % of total income"}
+            theme={theme}
+            style={{ borderRight: "none", borderBottom: "none" }}
+          >
+          {/* Chart Controls - Upper Right */}
+          <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8, alignItems: "center", zIndex: 10 }}>
+            <ControlPill value={chartType} setValue={setChartType} options={["bars", "vs income"]} />
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 8, background: "rgba(255,255,255,0.03)", fontSize: 10, color: "#888" }}>
+              <span style={{ textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 500 }}>TOP</span>
+              <input type="range" min={3} max={10} value={topN} onChange={(e) => setTopN(Number(e.target.value))} style={{ width: 60 }} />
+              <span style={{ color: "#fff", fontWeight: 600, minWidth: "16px" }}>{topN}</span>
+            </div>
+          </div>
           <div style={{ width: "100%", height: 420 }}>
             <ResponsiveContainer width="100%" height="100%">
               {chartType === "bars" ? (
                 <BarChart data={dataForBars} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
                   <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
-                  <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => (scale === "percent" ? `${Math.round(v)}%` : formatCurrency(v))} />
-                  <Tooltip content={<TooltipBox scale={scale} />} />
-                  <Legend wrapperStyle={{ color: "#999", fontSize: 11 }} />
-                  {activeSeries.map((key) => (<Bar key={key} dataKey={key} stackId={mode === "stacked" ? "a" : undefined} fill={colorFor(key)} radius={mode === "stacked" ? [3, 3, 0, 0] : 3} maxBarSize={36} opacity={key === "Other" ? 0.7 : 0.95} />))}
+                  <XAxis dataKey="month" tick={{ fill: theme === "light" ? "#1a1a1a" : "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
+                  <YAxis tick={{ fill: theme === "light" ? "#1a1a1a" : "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
+                  <Tooltip content={<TooltipBox scale="absolute" />} />
+                  <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 11 }} />
+                  {activeSeries.map((key) => (<Bar key={key} dataKey={key} stackId="a" fill={colorFor(key)} radius={[3, 3, 0, 0]} maxBarSize={36} opacity={key === "Other" ? 0.7 : 0.95} />))}
                 </BarChart>
-              ) : chartType === "breakdown" ? (
-                <PieChart>
-                  <Pie
-                    data={donutData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={80}
-                    outerRadius={140}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={({ name, value, percent }) => `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(1)}%)`}
-                    labelLine={{ stroke: "#666", strokeWidth: 1 }}
-                  >
-                    {donutData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                </PieChart>
               ) : (
                 <PieChart>
                   <Pie
@@ -873,77 +851,120 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
             </ResponsiveContainer>
           </div>
           {chartType === "bars" && (
-            <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Tag text={`${activeSeries.length - 1} categories + Other`} />
-              <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
+            <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Tag text={`${activeSeries.length - 1} categories + Other`} />
+                <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 8, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                  <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4" }} />
+                  <span style={{ color: excludeFamily ? "#4ecdc4" : "#888", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Exclude Family Care</span>
+                </label>
+              </div>
             </div>
           )}
-        </Panel>
+          </Panel>
+        </div>
 
-        <Panel title={focusGroup === "All" ? "Total trend" : `Trend: ${focusGroup}`} subtitle={scale === "percent" ? "Percent of monthly total" : "NET spending after credits"}>
-          <div style={{ width: "100%", height: 260 }}>
+        <div style={{ gridColumn: "span 4" }}>
+          <Panel
+            title={focusGroup === "All" ? "Total Trend" : `Trend: ${focusGroup}`}
+            theme={theme}
+            style={{ borderBottom: "none" }}
+          >
+          {/* Line Chart Controls - Below Header */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 4, background: "rgba(255,255,255,0.03)", fontSize: 10, border: "1px solid rgba(255,255,255,0.05)" }}>
+              <span style={{ color: "#888", textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 500 }}>FOCUS</span>
+              <select value={focusGroup} onChange={(e) => setFocusGroup(e.target.value)} style={{ background: "rgba(0,0,0,0.25)", color: "#fff", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 4, padding: "3px 6px", fontSize: 10, outline: "none", textTransform: "uppercase" }}>
+                <option value="All">ALL</option>
+                {topGroups.map((g) => <option key={g} value={g}>{g.toUpperCase()}</option>)}
+                <option value="Other">OTHER</option>
+              </select>
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <input type="checkbox" checked={showIncome} onChange={(e) => setShowIncome(e.target.checked)} style={{ accentColor: theme === "light" ? "#1a1a1a" : "#888", cursor: "pointer" }} />
+              <span style={{ color: theme === "light" ? "#1a1a1a" : "#888", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>SHOW INCOME</span>
+            </label>
+          </div>
+          <div style={{ width: "100%", height: 240 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dataForArea} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
                 <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
-                <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => (scale === "percent" ? `${Math.round(v)}%` : formatCurrency(v))} />
-                <Tooltip content={<TooltipBox scale={scale} />} />
+                <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
+                <Tooltip content={<TooltipBox scale="absolute" />} />
                 <Area type="monotone" dataKey="value" stroke={colorFor(focusGroup)} fill={colorFor(focusGroup)} fillOpacity={0.18} strokeWidth={2} />
                 {showIncome && <Line type="monotone" dataKey="income" stroke="rgba(78, 205, 196, 0.4)" strokeWidth={2} dot={false} strokeDasharray="5 5" />}
               </AreaChart>
             </ResponsiveContainer>
           </div>
           <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-            <StatBox label="Total YTD" value={formatCurrency(monthlyTotals.reduce((s, m) => s + m.total, 0))} />
-            <StatBox label="Monthly Avg" value={formatCurrency(monthlyTotals.reduce((s, m) => s + m.total, 0) / monthlyTotals.length)} />
-            <StatBox label="Highest" value={formatCurrency(highestMonth.value)} subtext={highestMonth.month} />
+            <StatBox label="Total YTD" value={formatCurrency(monthlyTotals.reduce((s, m) => s + m.total, 0))} theme={theme} />
+            <StatBox label="Monthly Avg" value={formatCurrency(monthlyTotals.reduce((s, m) => s + m.total, 0) / monthlyTotals.length)} theme={theme} />
+            <StatBox label="Highest" value={formatCurrency(highestMonth.value)} subtext={highestMonth.month} theme={theme} />
+            <StatBox label="Total Income" value={formatCurrency(totalIncome)} subtext={`Avg: ${formatCurrency(monthsData.length > 0 ? totalIncome / monthsData.length : 0)}/mo`} theme={theme} />
+            <StatBox
+              label={monthlySurplus >= 0 ? "Monthly Surplus" : "Monthly Deficit"}
+              value={formatCurrency(Math.abs(monthlySurplus))}
+              subtext={monthlySurplus >= 0 ? "Saving" : "Overspending"}
+              theme={theme}
+            />
+            <StatBox label="Lowest" value={formatCurrency(lowestMonth.value)} subtext={lowestMonth.month} theme={theme} />
           </div>
-        </Panel>
+          </Panel>
+        </div>
       </div>
 
-      <div style={{ marginTop: 18 }}>
-        <Panel title="Group Totals (YTD NET)" subtitle="Ranked by total spend after credits applied">
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(12, 1fr)",
+        gap: "0",
+        marginBottom: "0"
+      }}>
+        <div style={{ gridColumn: "span 8" }}>
+          <Panel
+            title="Group Totals"
+            subtitle="Ranked by total spend after credits applied"
+            theme={theme}
+            style={{ borderRight: "none" }}
+          >
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
             {Object.entries(totalsByGroup).sort((a, b) => b[1] - a[1]).map(([group, total]) => {
               const avgMonthly = monthsData.length > 0 ? total / monthsData.length : 0;
+              const valueColor = theme === "light" ? "#1a1a1a" : "#fff";
               return (
                 <div key={group} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                     <div style={{ width: 8, height: 8, borderRadius: 2, background: colorFor(group) }} />
                     <span style={{ color: "#aaa", fontSize: 12 }}>{group}</span>
                   </div>
-                  <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, marginBottom: 2 }}>{formatCurrency(total)}</div>
+                  <div style={{ color: valueColor, fontSize: 15, fontWeight: 700, marginBottom: 2, transition: "color 0.3s ease" }}>{formatCurrency(total)}</div>
                   <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
                 </div>
               );
             })}
-            <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "1px solid rgba(78,205,196,0.15)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
-                <span style={{ color: "#4ecdc4", fontSize: 12 }}>Total Income</span>
-              </div>
-              <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, marginBottom: 2 }}>{formatCurrency(totalIncome)}</div>
-              <div style={{ color: "#4ecdc4", fontSize: 11 }}>Avg: {formatCurrency(monthsData.length > 0 ? totalIncome / monthsData.length : 0)}/mo</div>
-            </div>
           </div>
-        </Panel>
-      </div>
+          </Panel>
+        </div>
 
-      <div style={{ marginTop: 18 }}>
-        <Panel title="Key Insights" subtitle="NET spending analysis">
+        <div style={{ gridColumn: "span 4" }}>
+          <Panel title="Key Insights" theme={theme}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
             <div style={{ padding: "16px", borderRadius: 12, background: "rgba(255,107,107,0.08)", border: "1px solid rgba(255,107,107,0.15)" }}>
               <div style={{ color: "#ff6b6b", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Actual Rent</div>
-              <div style={{ color: "#fff", fontSize: 22, fontWeight: 800 }}>{formatCurrency(actualRent)}/mo</div>
+              <div style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontSize: 22, fontWeight: 800 }}>{formatCurrency(actualRent)}/mo</div>
               <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>Average monthly after split</div>
             </div>
             <div style={{ padding: "16px", borderRadius: 12, background: "rgba(170,150,218,0.08)", border: "1px solid rgba(170,150,218,0.15)" }}>
               <div style={{ color: "#aa96da", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Interest Paid</div>
-              <div style={{ color: "#fff", fontSize: 22, fontWeight: 800 }}>{formatCurrency(interestPaid)}</div>
+              <div style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontSize: 22, fontWeight: 800 }}>{formatCurrency(interestPaid)}</div>
               <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>Total interest charged</div>
             </div>
           </div>
-        </Panel>
+          </Panel>
+        </div>
       </div>
     </>
   );
@@ -987,7 +1008,7 @@ function GivingTab({ categoryData }) {
   return (
     <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: 22, padding: "16px 18px", borderRadius: 16, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-        <ControlPill label="View" value={viewMode} setValue={setViewMode} options={["stacked", "grouped"]} />
+        <ControlPill value={viewMode} setValue={setViewMode} options={["stacked", "grouped"]} />
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", borderRadius: 12, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
             <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4" }} />
@@ -1064,7 +1085,7 @@ function GivingTab({ categoryData }) {
 }
 
 // ============ SHARED COMPONENTS ============
-const TooltipBox = React.memo(({ active, payload, label, scale = "absolute" }) => {
+const TooltipBox = React.memo(({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;
   const total = payload.reduce((s, p) => s + (typeof p.value === "number" ? p.value : 0), 0);
   return (
@@ -1094,7 +1115,7 @@ const TooltipBox = React.memo(({ active, payload, label, scale = "absolute" }) =
             <div style={{ color: COLORS.gray[400], fontSize: FONT_SIZE.base }}>{p.name}</div>
           </div>
           <div style={{ color: COLORS.white, fontSize: FONT_SIZE.base, fontWeight: 700 }}>
-            {scale === "percent" ? `${p.value.toFixed(1)}%` : formatCurrency(p.value)}
+            {formatCurrency(p.value)}
           </div>
         </div>
       ))}
@@ -1115,13 +1136,22 @@ const TooltipBox = React.memo(({ active, payload, label, scale = "absolute" }) =
 });
 TooltipBox.displayName = 'TooltipBox';
 
-const Panel = React.memo(({ title, subtitle, children }) => {
+const Panel = React.memo(({ title, subtitle, children, theme = "dark", style = {} }) => {
+  const panelBg = theme === "light" ? "transparent" : `rgba(255,255,255,${OPACITY.surface.level0})`;
+  const panelBorder = theme === "light" ? "#000000" : `rgba(255,255,255,${OPACITY.border.default})`;
+  const titleColor = theme === "light" ? "#1a1a1a" : COLORS.gray[200];
+  const subtitleColor = theme === "light" ? "#6a6a6a" : COLORS.gray[600];
+
   return (
     <div style={{
-      background: `rgba(255,255,255,${OPACITY.surface.level0})`,
-      borderRadius: RADIUS['4xl'],
-      padding: SPACING['5xl'],
-      border: `1px solid rgba(255,255,255,${OPACITY.surface.level3})`
+      position: "relative",
+      background: panelBg,
+      borderRadius: "0",
+      padding: `${SPACING['4xl']}px ${SPACING['4xl']}px`,
+      border: `1px solid ${panelBorder}`,
+      transition: "all 0.3s ease",
+      height: "100%",
+      ...style
     }}>
       <div style={{
         display: "flex",
@@ -1130,14 +1160,15 @@ const Panel = React.memo(({ title, subtitle, children }) => {
         marginBottom: SPACING['2xl']
       }}>
         <div>
-          <div style={{ fontSize: FONT_SIZE.lg, fontWeight: 800, color: COLORS.gray[200] }}>
+          <div style={{ fontSize: FONT_SIZE.lg, fontWeight: 800, color: titleColor, transition: "color 0.3s ease" }}>
             {title}
           </div>
           {subtitle && (
             <div style={{
               marginTop: SPACING.xs,
               fontSize: FONT_SIZE.base,
-              color: COLORS.gray[700]
+              color: subtitleColor,
+              transition: "color 0.3s ease"
             }}>
               {subtitle}
             </div>
@@ -1150,7 +1181,9 @@ const Panel = React.memo(({ title, subtitle, children }) => {
 });
 Panel.displayName = 'Panel';
 
-const StatBox = React.memo(({ label, value, subtext }) => {
+const StatBox = React.memo(({ label, value, subtext, theme = "dark" }) => {
+  const valueColor = theme === "light" ? "#1a1a1a" : COLORS.white;
+
   return (
     <div style={{
       padding: `${SPACING.xl}px ${SPACING['2xl']}px`,
@@ -1168,10 +1201,11 @@ const StatBox = React.memo(({ label, value, subtext }) => {
         {label}
       </div>
       <div style={{
-        color: COLORS.white,
+        color: valueColor,
         fontSize: FONT_SIZE.xl,
         fontWeight: 800,
-        marginTop: SPACING.xs
+        marginTop: SPACING.xs,
+        transition: "color 0.3s ease"
       }}>
         {value}
       </div>
@@ -1231,15 +1265,17 @@ const ControlPill = React.memo(({ label, value, setValue, options }) => {
       borderRadius: RADIUS.xl,
       background: `rgba(255,255,255,${OPACITY.surface.level1})`
     }}>
-      <div style={{
-        color: COLORS.gray[600],
-        fontSize: FONT_SIZE.base,
-        fontWeight: 700,
-        textTransform: "uppercase",
-        letterSpacing: 1.2
-      }}>
-        {label}
-      </div>
+      {label && (
+        <div style={{
+          color: COLORS.gray[600],
+          fontSize: FONT_SIZE.base,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: 1.2
+        }}>
+          {label}
+        </div>
+      )}
       <div style={{ display: "flex", gap: SPACING.md }}>
         {options.map((opt) => {
           const active = opt === value;
@@ -1259,7 +1295,8 @@ const ControlPill = React.memo(({ label, value, setValue, options }) => {
                 color: active ? COLORS.white : COLORS.gray[600],
                 fontSize: FONT_SIZE.md,
                 fontWeight: 800,
-                cursor: "pointer"
+                cursor: "pointer",
+                textTransform: "uppercase"
               }}
             >
               {opt}
@@ -1276,6 +1313,29 @@ ControlPill.displayName = 'ControlPill';
 export default function SpendingDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [excludeFamily, setExcludeFamily] = useState(false);
+  const [theme, setTheme] = useState("dark"); // "dark" or "light"
+
+  // Theme colors
+  const themeColors = {
+    dark: {
+      background: "linear-gradient(145deg, #0d0d12 0%, #1a1a24 100%)",
+      text: "#ffffff",
+      textSecondary: "#aaa",
+      textTertiary: "#888",
+      panelBg: "rgba(255,255,255,0.02)",
+      panelBorder: "rgba(255,255,255,0.05)",
+    },
+    light: {
+      background: "linear-gradient(145deg, #faf9f6 0%, #f5f3ee 100%)",
+      text: "#1a1a1a",
+      textSecondary: "#4a4a4a",
+      textTertiary: "#6a6a6a",
+      panelBg: "rgba(255,255,255,0.8)",
+      panelBorder: "rgba(0,0,0,0.08)",
+    }
+  };
+
+  const currentTheme = themeColors[theme];
 
   // Data fetching state - all data loaded from Google Sheets API
   const [monthsData, setMonthsData] = useState([]);
@@ -1341,10 +1401,11 @@ export default function SpendingDashboard() {
 
   return (
     <div style={{
-      background: COLORS.background.primary,
+      background: currentTheme.background,
       minHeight: "100vh",
       padding: `${SPACING['7xl']}px ${SPACING['3xl']}px`,
-      fontFamily: "system-ui, -apple-system, sans-serif"
+      fontFamily: "'Archivo Narrow', sans-serif",
+      transition: "background 0.3s ease"
     }}>
       <div style={{
         maxWidth: "1400px",
@@ -1421,44 +1482,67 @@ export default function SpendingDashboard() {
         <div style={{
           marginBottom: SPACING['6xl'],
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
+          justifyContent: "center",
+          alignItems: "center",
           flexWrap: "wrap",
-          gap: SPACING['3xl']
+          gap: SPACING['3xl'],
+          position: "relative"
         }}>
-          <div>
-            <h1 style={{
-              margin: 0,
-              fontSize: FONT_SIZE['3xl'],
-              fontWeight: 800,
-              color: COLORS.white,
-              letterSpacing: "-0.5px"
-            }}>
-              {dateRange.yearLabel ? `${dateRange.yearLabel} Spending Analysis` : 'Spending Analysis'}
-            </h1>
-            <p style={{
-              margin: `${SPACING.sm}px 0 0`,
-              color: COLORS.gray[800],
-              fontSize: FONT_SIZE.md
-            }}>
-              NET spending after credits • Transfers excluded • {dateRange.monthCount} months
-            </p>
-          </div>
-        {activeTab === "overview" && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", borderRadius: 12, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-              <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4" }} />
-              <span style={{ color: excludeFamily ? "#4ecdc4" : "#888", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>Exclude Family Care</span>
-            </label>
-          </div>
-        )}
+          <h1 style={{
+            margin: 0,
+            fontSize: FONT_SIZE['3xl'],
+            fontWeight: 600,
+            color: currentTheme.text,
+            letterSpacing: "2px",
+            textTransform: "uppercase",
+            textAlign: "center",
+            transition: "color 0.3s ease"
+          }}>
+            {dateRange.yearLabel ? `${dateRange.yearLabel} Spending Analysis` : 'Spending Analysis'}
+          </h1>
+          {/* Theme Toggle Button */}
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              background: currentTheme.panelBg,
+              border: `1px solid ${currentTheme.panelBorder}`,
+              borderRadius: "50%",
+              width: "40px",
+              height: "40px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              transition: "all 0.2s ease"
+            }}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            {theme === "dark" ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: currentTheme.text }}>
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: currentTheme.text }}>
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            )}
+          </button>
         </div>
         <div style={{
           display: "flex",
           gap: SPACING.md,
-          marginBottom: SPACING['6xl'],
-          borderBottom: `1px solid rgba(255,255,255,${OPACITY.border.default})`,
-          paddingBottom: SPACING['3xl'],
+          marginBottom: SPACING['3xl'],
           flexWrap: "wrap"
         }}>
           {tabs.map((tab) => (
@@ -1467,14 +1551,15 @@ export default function SpendingDashboard() {
               onClick={() => setActiveTab(tab.id)}
               style={{
                 padding: `${SPACING.lg}px ${SPACING['3xl']}px`,
-                borderRadius: RADIUS.xl,
-                border: activeTab === tab.id ? `1px solid ${tab.color}40` : "1px solid transparent",
-                background: activeTab === tab.id ? `${tab.color}15` : "transparent",
-                color: activeTab === tab.id ? tab.color : COLORS.gray[600],
+                border: "none",
+                background: "transparent",
+                color: theme === "light" ? "#1a1a1a" : currentTheme.textTertiary,
                 fontSize: FONT_SIZE.md,
-                fontWeight: 700,
+                fontWeight: activeTab === tab.id ? 800 : 400,
                 cursor: "pointer",
-                transition: "all 0.2s ease"
+                transition: "all 0.2s ease",
+                textTransform: "uppercase",
+                letterSpacing: "1px"
               }}
             >
               {tab.label}
@@ -1482,7 +1567,7 @@ export default function SpendingDashboard() {
           ))}
         </div>
 
-        {activeTab === "overview" && <OverviewTab excludeFamily={excludeFamily} monthsData={monthsData} givingCategories={categoryData["Giving"] || []} groupMap={groupMap} categoryData={categoryData} />}
+        {activeTab === "overview" && <OverviewTab excludeFamily={excludeFamily} setExcludeFamily={setExcludeFamily} monthsData={monthsData} givingCategories={categoryData["Giving"] || []} groupMap={groupMap} categoryData={categoryData} theme={theme} />}
 
         {activeTab === "food" && (
           <CategoryTab
