@@ -47,6 +47,20 @@ function transformCategoryData(categoryDataForGroup) {
 
 const PALETTE = ["#ff6b6b", "#4ecdc4", "#ffe66d", "#95e1d3", "#f38181", "#aa96da", "#fcbad3", "#a8d8ea", "#f9c74f", "#90be6d", "#e17055", "#577590"];
 
+// Fixed colors for each spending group
+const GROUP_COLORS = {
+  "Food & Dining": "#C03221",
+  "Transportation": "#2B50AA",
+  "Home": "#E2B007",
+  "Giving": "#1B4332",
+  "Shopping": "#F4A261",
+  "Subscriptions": "#F1E9DB",
+  "Health": "#5D737E",
+  "Travel": "#8B4513",
+  "Financial": "#8E7C93",
+  "Fun": "#262626"
+};
+
 const FOOD_PALETTE = { "Bars": "#f38181", "Cafes": "#f9c74f", "Groceries": "#90be6d", "Restaurants": "#ff6b6b", "Takeout & Delivery": "#4ecdc4" };
 const FUN_PALETTE = { "Activities & Attractions": "#aa96da", "Books, Movies & Music": "#4ecdc4", "Live Events": "#ff6b6b" };
 const GIVING_PALETTE = { "Charity": "#90be6d", "Family Care": "#ff6b6b", "Gifts": "#f9c74f" };
@@ -623,6 +637,7 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
   const [topN, setTopN] = useState(THRESHOLDS.topCategories.default);
   const [focusGroup, setFocusGroup] = useState("All");
   const [chartType, setChartType] = useState("bars");
+  const [showIncome, setShowIncome] = useState(true);
 
   // Calculate dynamic insights
   const actualRent = useMemo(() => {
@@ -699,9 +714,22 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
   }, [topN, scale, focusGroup, excludeFamily, monthsData, givingCategories, groupMap]);
 
   const activeSeries = [...topGroups, "Other"];
-  const colorFor = (key) => { let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0; return PALETTE[h % PALETTE.length]; };
+  const colorFor = (key) => {
+    // Use fixed colors for spending groups
+    if (GROUP_COLORS[key]) {
+      return GROUP_COLORS[key];
+    }
+    // Fallback for "Other" or unknown groups
+    if (key === "Other") {
+      return "#888888";
+    }
+    // Final fallback to hash-based color
+    let h = 0;
+    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+    return PALETTE[h % PALETTE.length];
+  };
 
-  // Prepare data for donut chart
+  // Prepare data for breakdown donut chart
   const donutData = useMemo(() => {
     return Object.entries(totalsByGroup)
       .sort((a, b) => b[1] - a[1])
@@ -712,12 +740,47 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
       }));
   }, [totalsByGroup]);
 
+  // Calculate total income across all months
+  const totalIncome = useMemo(() => {
+    return monthsData.reduce((sum, m) => sum + (m.income || 0), 0);
+  }, [monthsData]);
+
+  // Prepare data for income vs expenses donut chart
+  const incomeVsExpensesData = useMemo(() => {
+    const totalExpenses = Object.values(totalsByGroup).reduce((sum, val) => sum + val, 0);
+
+    // If income is lower than or equal to expenses, fall back to regular breakdown
+    if (totalIncome <= totalExpenses) {
+      return donutData;
+    }
+
+    // Show each group as % of income, plus savings
+    const groupsAsPercentOfIncome = Object.entries(totalsByGroup)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value]) => ({
+        name,
+        value,
+        color: colorFor(name)
+      }));
+
+    // Add savings as the difference
+    const savings = totalIncome - totalExpenses;
+    groupsAsPercentOfIncome.push({
+      name: 'Savings',
+      value: savings,
+      color: '#4ecdc4' // teal for savings
+    });
+
+    return groupsAsPercentOfIncome;
+  }, [totalsByGroup, monthsData, donutData]);
+
   return (
     <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: 22, padding: "16px 18px", borderRadius: 16, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-        <ControlPill label="Chart" value={chartType} setValue={setChartType} options={["bars", "donut"]} />
+        <ControlPill label="Chart" value={chartType} setValue={setChartType} options={["bars", "breakdown", "vs income"]} />
         <ControlPill label="View" value={mode} setValue={setMode} options={["stacked", "grouped"]} />
         <ControlPill label="Scale" value={scale} setValue={setScale} options={["absolute", "percent"]} />
+        <ControlPill label="Income" value={showIncome ? "show" : "hide"} setValue={(v) => setShowIncome(v === "show")} options={["show", "hide"]} />
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 12, background: "rgba(255,255,255,0.03)" }}>
           <div style={{ color: "#888", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>Top</div>
           <input type="range" min={3} max={10} value={topN} onChange={(e) => setTopN(Number(e.target.value))} style={{ width: 120 }} />
@@ -735,8 +798,20 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
 
       <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 18, alignItems: "start" }}>
         <Panel
-          title={chartType === "bars" ? `Month comparison (${scale === "percent" ? "% of month" : "NET dollars"})` : "Total Breakdown by Group"}
-          subtitle={chartType === "bars" ? (mode === "stacked" ? "Stacked: composition by month" : "Grouped: side-by-side") : "All-time spending distribution"}
+          title={
+            chartType === "bars"
+              ? `Month comparison (${scale === "percent" ? "% of month" : "NET dollars"})`
+              : chartType === "breakdown"
+              ? "Total Breakdown by Group"
+              : "Income vs Expenses"
+          }
+          subtitle={
+            chartType === "bars"
+              ? (mode === "stacked" ? "Stacked: composition by month" : "Grouped: side-by-side")
+              : chartType === "breakdown"
+              ? "All-time spending distribution"
+              : "Each group as % of total income (with savings if applicable)"
+          }
         >
           <div style={{ width: "100%", height: 420 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -749,7 +824,7 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
                   <Legend wrapperStyle={{ color: "#999", fontSize: 11 }} />
                   {activeSeries.map((key) => (<Bar key={key} dataKey={key} stackId={mode === "stacked" ? "a" : undefined} fill={colorFor(key)} radius={mode === "stacked" ? [3, 3, 0, 0] : 3} maxBarSize={36} opacity={key === "Other" ? 0.7 : 0.95} />))}
                 </BarChart>
-              ) : (
+              ) : chartType === "breakdown" ? (
                 <PieChart>
                   <Pie
                     data={donutData}
@@ -763,6 +838,25 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
                     labelLine={{ stroke: "#666", strokeWidth: 1 }}
                   >
                     {donutData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                </PieChart>
+              ) : (
+                <PieChart>
+                  <Pie
+                    data={incomeVsExpensesData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={140}
+                    paddingAngle={4}
+                    dataKey="value"
+                    label={({ name, value, percent }) => `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(1)}%)`}
+                    labelLine={{ stroke: "#666", strokeWidth: 1 }}
+                  >
+                    {incomeVsExpensesData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -788,7 +882,7 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
                 <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => (scale === "percent" ? `${Math.round(v)}%` : formatCurrency(v))} />
                 <Tooltip content={<TooltipBox scale={scale} />} />
                 <Area type="monotone" dataKey="value" stroke={colorFor(focusGroup)} fill={colorFor(focusGroup)} fillOpacity={0.18} strokeWidth={2} />
-                <Line type="monotone" dataKey="income" stroke="rgba(78, 205, 196, 0.4)" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+                {showIncome && <Line type="monotone" dataKey="income" stroke="rgba(78, 205, 196, 0.4)" strokeWidth={2} dot={false} strokeDasharray="5 5" />}
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -816,6 +910,14 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
                 </div>
               );
             })}
+            <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "1px solid rgba(78,205,196,0.15)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
+                <span style={{ color: "#4ecdc4", fontSize: 12 }}>Total Income</span>
+              </div>
+              <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, marginBottom: 2 }}>{formatCurrency(totalIncome)}</div>
+              <div style={{ color: "#4ecdc4", fontSize: 11 }}>Avg: {formatCurrency(monthsData.length > 0 ? totalIncome / monthsData.length : 0)}/mo</div>
+            </div>
           </div>
         </Panel>
       </div>
