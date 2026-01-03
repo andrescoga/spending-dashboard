@@ -494,7 +494,7 @@ const HighlightBox = React.memo(({ title, value, subtext, color }) => {
 });
 HighlightBox.displayName = 'HighlightBox';
 
-const SubcategorySummaryCard = React.memo(({ category, total, percentage, avgMonthly, color }) => {
+const SubcategorySummaryCard = React.memo(({ total, percentage, avgMonthly, color }) => {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: SPACING.lg, marginBottom: SPACING.md }}>
@@ -660,7 +660,7 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
     );
   }
 
-  const { groups, totalsByGroup, topGroups, dataForBars, dataForArea, monthlyTotals, spikes } = useMemo(() => {
+  const { totalsByGroup, topGroups, dataForBars, dataForArea, monthlyTotals, spikes } = useMemo(() => {
     const filteredMonths = excludeFamily
       ? monthsData.map((m, i) => {
           const familyCare = givingCategories[i]?.["Family Care"] || 0;
@@ -714,7 +714,7 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
   }, [topN, scale, focusGroup, excludeFamily, monthsData, givingCategories, groupMap]);
 
   const activeSeries = [...topGroups, "Other"];
-  const colorFor = (key) => {
+  const colorFor = useCallback((key) => {
     // Use fixed colors for spending groups
     if (GROUP_COLORS[key]) {
       return GROUP_COLORS[key];
@@ -727,7 +727,7 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
     let h = 0;
     for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
     return PALETTE[h % PALETTE.length];
-  };
+  }, []);
 
   // Prepare data for breakdown donut chart
   const donutData = useMemo(() => {
@@ -773,6 +773,13 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
 
     return groupsAsPercentOfIncome;
   }, [totalsByGroup, monthsData, donutData]);
+
+  // Calculate highest month once to avoid redundant operations
+  const highestMonth = useMemo(() => {
+    const max = Math.max(...monthlyTotals.map(m => m.total));
+    const month = monthlyTotals.find(m => m.total === max);
+    return { value: max, month: month?.month };
+  }, [monthlyTotals]);
 
   return (
     <>
@@ -889,7 +896,7 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
           <div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
             <StatBox label="Total YTD" value={formatCurrency(monthlyTotals.reduce((s, m) => s + m.total, 0))} />
             <StatBox label="Monthly Avg" value={formatCurrency(monthlyTotals.reduce((s, m) => s + m.total, 0) / monthlyTotals.length)} />
-            <StatBox label="Highest" value={formatCurrency(Math.max(...monthlyTotals.map(m => m.total)))} subtext={monthlyTotals.find(m => m.total === Math.max(...monthlyTotals.map(x => x.total)))?.month} />
+            <StatBox label="Highest" value={formatCurrency(highestMonth.value)} subtext={highestMonth.month} />
           </div>
         </Panel>
       </div>
@@ -976,7 +983,6 @@ function GivingTab({ categoryData }) {
   const chartData = useMemo(() => excludeFamily ? categoryData.map(m => ({ month: m.month, "Charity": m["Charity"], "Gifts": m["Gifts"] })) : categoryData, [excludeFamily, categoryData]);
   const totalFamilyCare = categoryData.reduce((s, m) => s + (m["Family Care"] || 0), 0);
   const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0);
-  const monthlyTotals = chartData.map(m => ({ month: m.month, total: subcats.reduce((s, c) => s + (m[c] || 0), 0) }));
 
   return (
     <>
