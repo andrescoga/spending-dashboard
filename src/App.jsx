@@ -12,6 +12,9 @@ import {
   Legend,
   LineChart,
   Line,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
 
 // Helper function to transform category data from API format to app format
@@ -619,6 +622,7 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
   const [scale, setScale] = useState("absolute");
   const [topN, setTopN] = useState(THRESHOLDS.topCategories.default);
   const [focusGroup, setFocusGroup] = useState("All");
+  const [chartType, setChartType] = useState("bars");
 
   // Calculate dynamic insights
   const actualRent = useMemo(() => {
@@ -697,9 +701,21 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
   const activeSeries = [...topGroups, "Other"];
   const colorFor = (key) => { let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0; return PALETTE[h % PALETTE.length]; };
 
+  // Prepare data for donut chart
+  const donutData = useMemo(() => {
+    return Object.entries(totalsByGroup)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value]) => ({
+        name,
+        value,
+        color: colorFor(name)
+      }));
+  }, [totalsByGroup]);
+
   return (
     <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: 22, padding: "16px 18px", borderRadius: 16, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
+        <ControlPill label="Chart" value={chartType} setValue={setChartType} options={["bars", "donut"]} />
         <ControlPill label="View" value={mode} setValue={setMode} options={["stacked", "grouped"]} />
         <ControlPill label="Scale" value={scale} setValue={setScale} options={["absolute", "percent"]} />
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 12, background: "rgba(255,255,255,0.03)" }}>
@@ -718,23 +734,49 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: 18, alignItems: "start" }}>
-        <Panel title={`Month comparison (${scale === "percent" ? "% of month" : "NET dollars"})`} subtitle={mode === "stacked" ? "Stacked: composition by month" : "Grouped: side-by-side"}>
+        <Panel
+          title={chartType === "bars" ? `Month comparison (${scale === "percent" ? "% of month" : "NET dollars"})` : "Total Breakdown by Group"}
+          subtitle={chartType === "bars" ? (mode === "stacked" ? "Stacked: composition by month" : "Grouped: side-by-side") : "All-time spending distribution"}
+        >
           <div style={{ width: "100%", height: 420 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dataForBars} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
-                <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
-                <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => (scale === "percent" ? `${Math.round(v)}%` : formatCurrency(v))} />
-                <Tooltip content={<TooltipBox scale={scale} />} />
-                <Legend wrapperStyle={{ color: "#999", fontSize: 11 }} />
-                {activeSeries.map((key) => (<Bar key={key} dataKey={key} stackId={mode === "stacked" ? "a" : undefined} fill={colorFor(key)} radius={mode === "stacked" ? [3, 3, 0, 0] : 3} maxBarSize={36} opacity={key === "Other" ? 0.7 : 0.95} />))}
-              </BarChart>
+              {chartType === "bars" ? (
+                <BarChart data={dataForBars} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
+                  <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
+                  <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v) => (scale === "percent" ? `${Math.round(v)}%` : formatCurrency(v))} />
+                  <Tooltip content={<TooltipBox scale={scale} />} />
+                  <Legend wrapperStyle={{ color: "#999", fontSize: 11 }} />
+                  {activeSeries.map((key) => (<Bar key={key} dataKey={key} stackId={mode === "stacked" ? "a" : undefined} fill={colorFor(key)} radius={mode === "stacked" ? [3, 3, 0, 0] : 3} maxBarSize={36} opacity={key === "Other" ? 0.7 : 0.95} />))}
+                </BarChart>
+              ) : (
+                <PieChart>
+                  <Pie
+                    data={donutData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={80}
+                    outerRadius={140}
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={({ name, value, percent }) => `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(1)}%)`}
+                    labelLine={{ stroke: "#666", strokeWidth: 1 }}
+                  >
+                    {donutData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                </PieChart>
+              )}
             </ResponsiveContainer>
           </div>
-          <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Tag text={`${activeSeries.length - 1} categories + Other`} />
-            <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
-          </div>
+          {chartType === "bars" && (
+            <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Tag text={`${activeSeries.length - 1} categories + Other`} />
+              <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
+            </div>
+          )}
         </Panel>
 
         <Panel title={focusGroup === "All" ? "Total trend" : `Trend: ${focusGroup}`} subtitle={scale === "percent" ? "Percent of monthly total" : "NET spending after credits"}>
