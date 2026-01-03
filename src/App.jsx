@@ -761,15 +761,19 @@ function OverviewTab({ excludeFamily, monthsData, givingCategories, groupMap, ca
       <div style={{ marginTop: 18 }}>
         <Panel title="Group Totals (YTD NET)" subtitle="Ranked by total spend after credits applied">
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
-            {Object.entries(totalsByGroup).sort((a, b) => b[1] - a[1]).map(([group, total]) => (
-              <div key={group} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 2, background: colorFor(group) }} />
-                  <span style={{ color: "#aaa", fontSize: 12 }}>{group}</span>
+            {Object.entries(totalsByGroup).sort((a, b) => b[1] - a[1]).map(([group, total]) => {
+              const avgMonthly = monthsData.length > 0 ? total / monthsData.length : 0;
+              return (
+                <div key={group} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: colorFor(group) }} />
+                    <span style={{ color: "#aaa", fontSize: 12 }}>{group}</span>
+                  </div>
+                  <div style={{ color: "#fff", fontSize: 15, fontWeight: 700, marginBottom: 2 }}>{formatCurrency(total)}</div>
+                  <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
                 </div>
-                <span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{formatCurrency(total)}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Panel>
       </div>
