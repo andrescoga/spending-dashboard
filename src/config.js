@@ -5,5 +5,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL ||
     ? 'https://your-username.vercel.app'  // Replace with your Vercel URL after deployment
     : 'http://localhost:3001');
 
-// Obscure endpoint name for security
-export const API_ENDPOINT = '/api/spending-data-a8k3h9x2';
+// Endpoint configuration: obscure in production, normal in development
+export const API_ENDPOINT = import.meta.env.MODE === 'production'
+  ? '/api/spending-data-a8k3h9x2'  // Obscure endpoint for security in production
+  : '/api/spending-data';           // Original endpoint for local development
