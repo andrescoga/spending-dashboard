@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect } from "react";
+import { API_BASE_URL, API_ENDPOINT } from './config';
 import {
   ResponsiveContainer,
   BarChart,
@@ -798,15 +799,18 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(12, 1fr)",
-        gap: "0",
+        gridTemplateRows: "auto auto",
+        gap: "1px",
+        background: "#000000",
         marginBottom: "0"
       }}>
-        <div style={{ gridColumn: "span 8" }}>
+        {/* Top Left - Month Comparison */}
+        <div style={{ gridColumn: "span 8", gridRow: "1" }}>
           <Panel
             title={chartType === "bars" ? "Month Comparison" : "Income vs Expenses"}
             subtitle={chartType === "bars" ? "NET spending by category" : "Spending as % of total income"}
             theme={theme}
-            style={{ borderRight: "none", borderBottom: "none" }}
+            style={{ border: "none", borderRadius: 0 }}
           >
           {/* Chart Controls - Upper Right */}
           <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8, alignItems: "center", zIndex: 10 }}>
@@ -867,11 +871,12 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
           </Panel>
         </div>
 
-        <div style={{ gridColumn: "span 4" }}>
+        {/* Top Right - Total Trend */}
+        <div style={{ gridColumn: "span 4", gridRow: "1" }}>
           <Panel
             title={focusGroup === "All" ? "Total Trend" : `Trend: ${focusGroup}`}
             theme={theme}
-            style={{ borderBottom: "none" }}
+            style={{ border: "none", borderRadius: 0 }}
           >
           {/* Line Chart Controls - Below Header */}
           <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
@@ -915,20 +920,14 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
           </div>
           </Panel>
         </div>
-      </div>
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(12, 1fr)",
-        gap: "0",
-        marginBottom: "0"
-      }}>
-        <div style={{ gridColumn: "span 8" }}>
+        {/* Bottom Left - Group Totals */}
+        <div style={{ gridColumn: "span 8", gridRow: "2" }}>
           <Panel
             title="Group Totals"
             subtitle="Ranked by total spend after credits applied"
             theme={theme}
-            style={{ borderRight: "none" }}
+            style={{ border: "none", borderRadius: 0 }}
           >
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
             {Object.entries(totalsByGroup).sort((a, b) => b[1] - a[1]).map(([group, total]) => {
@@ -949,20 +948,144 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
           </Panel>
         </div>
 
-        <div style={{ gridColumn: "span 4" }}>
-          <Panel title="Key Insights" theme={theme}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-            <div style={{ padding: "16px", borderRadius: 12, background: "rgba(255,107,107,0.08)", border: "1px solid rgba(255,107,107,0.15)" }}>
-              <div style={{ color: "#ff6b6b", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Actual Rent</div>
-              <div style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontSize: 22, fontWeight: 800 }}>{formatCurrency(actualRent)}/mo</div>
-              <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>Average monthly after split</div>
-            </div>
-            <div style={{ padding: "16px", borderRadius: 12, background: "rgba(170,150,218,0.08)", border: "1px solid rgba(170,150,218,0.15)" }}>
-              <div style={{ color: "#aa96da", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Interest Paid</div>
-              <div style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontSize: 22, fontWeight: 800 }}>{formatCurrency(interestPaid)}</div>
-              <div style={{ color: "#888", fontSize: 12, marginTop: 4 }}>Total interest charged</div>
-            </div>
-          </div>
+        {/* Bottom Right - Recurrent Expenses */}
+        <div style={{ gridColumn: "span 4", gridRow: "2" }}>
+          <Panel title="Recurrent Expenses" theme={theme} style={{ border: "none", borderRadius: 0 }}>
+          {(() => {
+            // Helper function to convert to monthly average
+            const toMonthly = (amount, frequency) => {
+              if (frequency === "Monthly") return amount;
+              if (frequency === "Yearly" || frequency === "Annually") return amount / 12;
+              if (frequency === "Every 12-weeks") return amount * 52 / 12 / 12;
+              if (frequency === "Every 5-weeks") return amount * 52 / 5 / 12;
+              return amount;
+            };
+
+            const expenseGroups = [
+              {
+                name: "Home",
+                items: [
+                  { name: "Rent", amount: 865, frequency: "Monthly" },
+                  { name: "Utilities", amount: 150, frequency: "Monthly" }
+                ]
+              },
+              {
+                name: "Tech & Cloud",
+                items: [
+                  { name: "ChatGPT", amount: 21.78, frequency: "Monthly" },
+                  { name: "Claude", amount: 21.78, frequency: "Monthly" },
+                  { name: "Google One", amount: 21.76, frequency: "Monthly" },
+                  { name: "Ircamamplify", amount: 11.74, frequency: "Monthly" }
+                ]
+              },
+              {
+                name: "Growth & Fun",
+                items: [
+                  { name: "Fitness", amount: 212, frequency: "Monthly" },
+                  { name: "Coursera", amount: 399, frequency: "Annually" },
+                  { name: "French", amount: 85, frequency: "Every 5-weeks" },
+                  { name: "The Economist", amount: 110, frequency: "Every 12-weeks" },
+                  { name: "MUBI", amount: 167.88, frequency: "Yearly" }
+                ]
+              },
+              {
+                name: "Services",
+                items: [
+                  { name: "Apple Care", amount: 8.70, frequency: "Monthly" },
+                  { name: "Amazon Prime", amount: 16.32, frequency: "Monthly" },
+                  { name: "iCloud", amount: 7.97, frequency: "Monthly" }
+                ]
+              },
+              {
+                name: "Financial",
+                items: [
+                  { name: "Amex Memberships", amount: 1020, frequency: "Yearly" }
+                ]
+              }
+            ];
+
+            // Calculate monthly averages for each group
+            const groupAverages = expenseGroups.map(group => ({
+              name: group.name,
+              monthly: group.items.reduce((sum, item) => sum + toMonthly(item.amount, item.frequency), 0)
+            }));
+
+            const totalMonthly = groupAverages.reduce((sum, g) => sum + g.monthly, 0);
+
+            return (
+              <div>
+                {/* Summary Card */}
+                <div style={{
+                  padding: "12px",
+                  borderRadius: 8,
+                  background: theme === "light" ? "rgba(78,205,196,0.08)" : "rgba(78,205,196,0.08)",
+                  border: `1px solid ${theme === "light" ? "rgba(78,205,196,0.2)" : "rgba(78,205,196,0.15)"}`,
+                  marginBottom: 12
+                }}>
+                  <div style={{ color: "#4ecdc4", fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Monthly Average</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, fontSize: 10 }}>
+                    {groupAverages.map((group, idx) => (
+                      <div key={idx} style={{ display: "flex", justifyContent: "space-between" }}>
+                        <span style={{ color: theme === "light" ? "#6a6a6a" : "#888" }}>{group.name}</span>
+                        <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 600 }}>{formatCurrency(group.monthly)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{
+                    marginTop: 8,
+                    paddingTop: 8,
+                    borderTop: `1px solid ${theme === "light" ? "rgba(78,205,196,0.2)" : "rgba(78,205,196,0.15)"}`,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}>
+                    <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontSize: 11, fontWeight: 700 }}>Total</span>
+                    <span style={{ color: "#4ecdc4", fontSize: 16, fontWeight: 800 }}>{formatCurrency(totalMonthly)}</span>
+                  </div>
+                </div>
+
+                {/* Group Cards */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+                  {expenseGroups.map((group, groupIdx) => (
+                    <div key={groupIdx} style={{
+                      padding: "8px 10px",
+                      borderRadius: 6,
+                      background: theme === "light" ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.03)",
+                      border: `1px solid ${theme === "light" ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)"}`
+                    }}>
+                      <div style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontSize: 10, fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>
+                        {group.name}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                        {group.items.map((item, itemIdx) => (
+                          <div key={itemIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10 }}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                              <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 500 }}>{item.name}</span>
+                              <span style={{ color: theme === "light" ? "#888" : "#666", fontSize: 8 }}>({item.frequency})</span>
+                            </div>
+                            <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 600 }}>{formatCurrency(item.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{
+                        marginTop: 6,
+                        paddingTop: 6,
+                        borderTop: `1px solid ${theme === "light" ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)"}`,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        fontSize: 10
+                      }}>
+                        <span style={{ color: theme === "light" ? "#6a6a6a" : "#888" }}>Avg/month</span>
+                        <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 700 }}>
+                          {formatCurrency(group.items.reduce((sum, item) => sum + toMonthly(item.amount, item.frequency), 0))}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
           </Panel>
         </div>
       </div>
@@ -1137,7 +1260,7 @@ const TooltipBox = React.memo(({ active, payload, label }) => {
 TooltipBox.displayName = 'TooltipBox';
 
 const Panel = React.memo(({ title, subtitle, children, theme = "dark", style = {} }) => {
-  const panelBg = theme === "light" ? "transparent" : `rgba(255,255,255,${OPACITY.surface.level0})`;
+  const panelBg = theme === "light" ? "#faf9f6" : `rgba(255,255,255,${OPACITY.surface.level0})`;
   const panelBorder = theme === "light" ? "#000000" : `rgba(255,255,255,${OPACITY.border.default})`;
   const titleColor = theme === "light" ? "#1a1a1a" : COLORS.gray[200];
   const subtitleColor = theme === "light" ? "#6a6a6a" : COLORS.gray[600];
@@ -1326,11 +1449,11 @@ export default function SpendingDashboard() {
       panelBorder: "rgba(255,255,255,0.05)",
     },
     light: {
-      background: "linear-gradient(145deg, #faf9f6 0%, #f5f3ee 100%)",
+      background: "#faf9f6",
       text: "#1a1a1a",
       textSecondary: "#4a4a4a",
       textTertiary: "#6a6a6a",
-      panelBg: "rgba(255,255,255,0.8)",
+      panelBg: "#faf9f6",
       panelBorder: "rgba(0,0,0,0.08)",
     }
   };
@@ -1352,7 +1475,7 @@ export default function SpendingDashboard() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('http://localhost:3001/api/spending-data');
+        const response = await fetch(`${API_BASE_URL}${API_ENDPOINT}`);
 
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
