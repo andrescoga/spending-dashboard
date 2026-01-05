@@ -936,7 +936,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                     {!isMobile && <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 11 }} />}
                     {activeSeries.map((key) => (<Bar key={key} dataKey={key} stackId="a" fill={colorFor(key)} radius={[3, 3, 0, 0]} maxBarSize={36} opacity={0.95} />))}
                     {/* Income line overlay */}
-                    {showIncome && <Line type="monotone" dataKey="income" stroke="#4ecdc4" strokeWidth={2} dot={{ fill: "#4ecdc4", r: 3 }} name="Income" />}
+                    {showIncome && <Line type="monotone" dataKey="income" stroke="#4ecdc4" strokeWidth={1.5} dot={{ fill: "#4ecdc4", r: 2 }} name="Income" />}
                   </ComposedChart>
                 )
               ) : (
@@ -986,7 +986,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
               </label>
             </div>
           </div>
-          {/* Group Summary Cards - below chart on desktop, linked to month selection */}
+          {/* Group Summary Cards - below chart on desktop only, linked to month selection */}
           {!isMobile && (
             <div style={{ marginTop: SPACING['3xl'] }}>
               {/* Stat boxes for overview */}
@@ -1465,34 +1465,32 @@ const TooltipBox = React.memo(({ active, payload, label }) => {
 });
 TooltipBox.displayName = 'TooltipBox';
 
-// Interactive data grid for mobile - shows selected month's breakdown only
+// Interactive data grid for mobile - shows group summaries or month breakdown
 const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, monthsData, totalsByGroup, totalIncome }) => {
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
   if (!isMobile || !data || data.length === 0) return null;
 
-  // Skip rendering if "All" is selected (desktop handles this)
-  if (selectedMonth === "All") return null;
+  // Default to "All" if none selected
+  const currentMonth = selectedMonth || "All";
+  const isAllView = currentMonth === "All";
+  const monthData = !isAllView ? (data.find(m => m.month === currentMonth) || data[data.length - 1]) : null;
 
-  // Default to most recent month if none selected
-  const currentMonth = selectedMonth || data[data.length - 1]?.month;
-  const monthData = data.find(m => m.month === currentMonth) || data[data.length - 1];
-
-  // Get income for the selected month
-  const monthInfo = monthsData?.find(m => m.month === currentMonth);
+  // Get income for the selected month (only for individual month view)
+  const monthInfo = !isAllView ? monthsData?.find(m => m.month === currentMonth) : null;
   const income = monthInfo?.income || 0;
 
-  // Extract categories and values for the selected month
-  const categories = Object.entries(monthData)
+  // Extract categories and values for the selected month (only for individual month view)
+  const categories = !isAllView ? Object.entries(monthData)
     .filter(([key, value]) => {
       // Exclude: month, __TOTAL, TOTAL, income, or anything starting with underscore
       if (key === 'month' || key.startsWith('_') || key.toUpperCase().includes('TOTAL') || key === 'income') return false;
       return typeof value === 'number' && value > 0;
     })
     .sort(([, a], [, b]) => b - a)
-    .slice(0, 8); // Show top 8 categories
+    .slice(0, 8) : []; // Show top 8 categories
 
-  const monthTotal = categories.reduce((sum, [, value]) => sum + value, 0);
-  const surplus = income - monthTotal;
+  const monthTotal = !isAllView ? categories.reduce((sum, [, value]) => sum + value, 0) : 0;
+  const surplus = !isAllView ? (income - monthTotal) : 0;
   const isSurplus = surplus >= 0;
 
   return (
@@ -1511,7 +1509,7 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
           textTransform: "uppercase",
           letterSpacing: "1px"
         }}>
-          Month:
+          {isAllView ? "View:" : "Month:"}
         </div>
         <select
           value={currentMonth}
@@ -1529,6 +1527,7 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
             fontFamily: "inherit"
           }}
         >
+          <option value="All">All Groups</option>
           {data.map((m) => (
             <option key={m.month} value={m.month}>
               {m.month}
@@ -1537,13 +1536,49 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
         </select>
       </div>
 
-      {/* Category grid - individual month breakdown */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: SPACING.md
-      }}>
-        {categories.map(([category, value]) => (
+      {/* Grid - shows Group Totals for "All" or individual month categories */}
+      {isAllView ? (
+        /* Group Totals view - percentage-first format */
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {Object.entries(totalsByGroup).sort((a, b) => b[1] - a[1]).map(([group, total]) => {
+            const avgMonthly = monthsData.length > 0 ? total / monthsData.length : 0;
+            const percentOfIncome = totalIncome > 0 ? (total / totalIncome) * 100 : 0;
+            return (
+              <div key={group} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: colorMap(group) }} />
+                  <span style={{ color: "#aaa", fontSize: 12 }}>{group}</span>
+                </div>
+                <div style={{ color: "#fff", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{percentOfIncome.toFixed(1)}%</div>
+                <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
+              </div>
+            );
+          })}
+          {/* Total card with teal accent */}
+          {(() => {
+            const grandTotal = Object.values(totalsByGroup).reduce((sum, val) => sum + val, 0);
+            const avgMonthly = monthsData.length > 0 ? grandTotal / monthsData.length : 0;
+            const percentOfIncome = totalIncome > 0 ? (grandTotal / totalIncome) * 100 : 0;
+            return (
+              <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
+                  <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL</span>
+                </div>
+                <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{percentOfIncome.toFixed(1)}%</div>
+                <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
+              </div>
+            );
+          })()}
+        </div>
+      ) : (
+        /* Individual month view - category breakdown */
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: SPACING.md
+        }}>
+          {categories.map(([category, value]) => (
             <div key={category} style={{
               display: "flex",
               flexDirection: "column",
@@ -1626,6 +1661,7 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
             </div>
           </div>
         </div>
+      )}
     </div>
   );
 });
