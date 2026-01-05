@@ -926,7 +926,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
           gridRow: isMobile ? "2" : "1"
         }}>
           <Panel
-            title={focusGroup === "All" ? "Total Trend" : `Trend: ${focusGroup}`}
+            title={focusGroup === "All" ? "Total Trend" : focusGroup}
             theme={theme}
             style={{ border: "none", borderRadius: 0 }}
           >
@@ -1588,7 +1588,7 @@ export default function SpendingDashboard() {
 
   return (
     <div style={{
-      background: currentTheme.background,
+      background: isMobile && theme === "dark" ? "#1a1a24" : currentTheme.background,
       minHeight: "100vh",
       padding: `${SPACING['7xl']}px ${SPACING['3xl']}px`,
       fontFamily: "'Archivo Narrow', sans-serif",
@@ -1726,34 +1726,64 @@ export default function SpendingDashboard() {
             )}
           </button>
         </div>
-        <div style={{
-          display: "flex",
-          gap: SPACING.md,
-          marginBottom: SPACING['3xl'],
-          flexWrap: "wrap"
-        }}>
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+        {/* Tab Navigation - Dropdown on mobile, buttons on desktop */}
+        {isMobile ? (
+          <div style={{ marginBottom: SPACING['3xl'] }}>
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value)}
               style={{
-                padding: isMobile ? `${SPACING['2xl']}px ${SPACING['4xl']}px` : `${SPACING.lg}px ${SPACING['3xl']}px`,
-                minHeight: isMobile ? "44px" : undefined,
-                border: "none",
-                background: "transparent",
-                color: theme === "light" ? "#1a1a1a" : currentTheme.textTertiary,
-                fontSize: isMobile ? FONT_SIZE.base : FONT_SIZE.md,
-                fontWeight: activeTab === tab.id ? 800 : 400,
-                cursor: "pointer",
-                transition: "all 0.2s ease",
+                width: "100%",
+                padding: `${SPACING['2xl']}px ${SPACING['3xl']}px`,
+                minHeight: "44px",
+                borderRadius: RADIUS.lg,
+                border: `1px solid rgba(255,255,255,${OPACITY.border.default})`,
+                background: `rgba(255,255,255,${OPACITY.surface.level1})`,
+                color: COLORS.white,
+                fontSize: FONT_SIZE.base,
+                fontWeight: 700,
                 textTransform: "uppercase",
-                letterSpacing: "1px"
+                letterSpacing: "1px",
+                cursor: "pointer",
+                fontFamily: "inherit"
               }}
             >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+              {tabs.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {tab.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div style={{
+            display: "flex",
+            gap: SPACING.md,
+            marginBottom: SPACING['3xl'],
+            flexWrap: "wrap"
+          }}>
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  padding: `${SPACING.lg}px ${SPACING['3xl']}px`,
+                  border: "none",
+                  background: "transparent",
+                  color: theme === "light" ? "#1a1a1a" : currentTheme.textTertiary,
+                  fontSize: FONT_SIZE.md,
+                  fontWeight: activeTab === tab.id ? 800 : 400,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  textTransform: "uppercase",
+                  letterSpacing: "1px"
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {activeTab === "overview" && <OverviewTab excludeFamily={excludeFamily} setExcludeFamily={setExcludeFamily} monthsData={monthsData} givingCategories={categoryData["Giving"] || []} groupMap={groupMap} categoryData={categoryData} theme={theme} />}
 
