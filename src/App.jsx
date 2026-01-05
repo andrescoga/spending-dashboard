@@ -409,6 +409,8 @@ const CategoryBarChart = React.memo(({ data, subcats, palette, viewMode }) => {
           ))}
         </BarChart>
       </ResponsiveContainer>
+      {/* Data grid for mobile */}
+      <DataGrid data={data} colorMap={(key) => palette[key]} />
     </div>
   );
 });
@@ -877,8 +879,8 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                   <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="month" tick={{ fill: theme === "light" ? "#1a1a1a" : "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
                   <YAxis tick={{ fill: theme === "light" ? "#1a1a1a" : "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
-                  <Tooltip content={<TooltipBox scale="absolute" />} />
-                  <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 11 }} />
+                  {!isMobile && <Tooltip content={<TooltipBox scale="absolute" />} />}
+                  {!isMobile && <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 11 }} />}
                   {activeSeries.map((key) => (<Bar key={key} dataKey={key} stackId="a" fill={colorFor(key)} radius={[3, 3, 0, 0]} maxBarSize={36} opacity={key === "Other" ? 0.7 : 0.95} />))}
                 </BarChart>
               ) : (
@@ -891,18 +893,20 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                     outerRadius={140}
                     paddingAngle={4}
                     dataKey="value"
-                    label={({ name, value, percent }) => `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(1)}%)`}
-                    labelLine={{ stroke: "#666", strokeWidth: 1 }}
+                    label={!isMobile ? ({ name, value, percent }) => `${name}: ${formatCurrency(value)} (${(percent * 100).toFixed(1)}%)` : undefined}
+                    labelLine={!isMobile ? { stroke: "#666", strokeWidth: 1 } : false}
                   >
                     {incomeVsExpensesData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  {!isMobile && <Tooltip formatter={(value) => formatCurrency(value)} />}
                 </PieChart>
               )}
             </ResponsiveContainer>
           </div>
+          {/* Data grid for mobile - constant breakdown below chart */}
+          {chartType === "bars" && <DataGrid data={dataForBars} colorMap={colorFor} />}
           {chartType === "bars" && (
             <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -951,7 +955,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                 <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis dataKey="month" tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
                 <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
-                <Tooltip content={<TooltipBox scale="absolute" />} />
+                {!isMobile && <Tooltip content={<TooltipBox scale="absolute" />} />}
                 <Area type="monotone" dataKey="value" stroke={colorFor(focusGroup)} fill={colorFor(focusGroup)} fillOpacity={0.18} strokeWidth={2} />
                 {showIncome && <Line type="monotone" dataKey="income" stroke="rgba(78, 205, 196, 0.4)" strokeWidth={2} dot={false} strokeDasharray="5 5" />}
               </AreaChart>
@@ -1317,8 +1321,90 @@ const TooltipBox = React.memo(({ active, payload, label }) => {
 });
 TooltipBox.displayName = 'TooltipBox';
 
+// Constant data grid for mobile - shows category breakdown without tooltips
+const DataGrid = React.memo(({ data, colorMap }) => {
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
+  if (!isMobile) return null;
+
+  // Calculate totals for each category
+  const categoryTotals = {};
+  data.forEach(month => {
+    Object.keys(month).forEach(key => {
+      if (key !== 'month' && typeof month[key] === 'number') {
+        categoryTotals[key] = (categoryTotals[key] || 0) + month[key];
+      }
+    });
+  });
+
+  // Sort by total and get top categories
+  const sortedCategories = Object.entries(categoryTotals)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 8); // Show top 8 categories
+
+  const grandTotal = sortedCategories.reduce((sum, [, value]) => sum + value, 0);
+
+  return (
+    <div style={{
+      marginTop: SPACING['3xl'],
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: SPACING.md,
+      padding: `${SPACING['2xl']}px 0`
+    }}>
+      {sortedCategories.map(([category, value]) => (
+        <div key={category} style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: SPACING.xs,
+          padding: SPACING.lg,
+          background: `rgba(255,255,255,${OPACITY.surface.level1})`,
+          borderRadius: RADIUS.md,
+          border: `1px solid rgba(255,255,255,${OPACITY.border.default})`
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: SPACING.md }}>
+            <div style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: colorMap(category),
+              flexShrink: 0
+            }} />
+            <div style={{
+              color: COLORS.gray[400],
+              fontSize: FONT_SIZE.sm,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap"
+            }}>
+              {category}
+            </div>
+          </div>
+          <div style={{
+            color: COLORS.white,
+            fontSize: FONT_SIZE.lg,
+            fontWeight: 800
+          }}>
+            {formatCurrency(value)}
+          </div>
+          <div style={{
+            color: COLORS.gray[600],
+            fontSize: FONT_SIZE.xs
+          }}>
+            {((value / grandTotal) * 100).toFixed(1)}%
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+});
+DataGrid.displayName = 'DataGrid';
+
 const Panel = React.memo(({ title, subtitle, children, theme = "dark", style = {} }) => {
-  const panelBg = theme === "light" ? "#faf9f6" : `rgba(255,255,255,${OPACITY.surface.level0})`;
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
+  const panelBg = theme === "light" ? "#faf9f6" : (isMobile ? "#000000" : `rgba(255,255,255,${OPACITY.surface.level0})`);
   const panelBorder = theme === "light" ? "#000000" : `rgba(255,255,255,${OPACITY.border.default})`;
   const titleColor = theme === "light" ? "#1a1a1a" : COLORS.gray[200];
   const subtitleColor = theme === "light" ? "#6a6a6a" : COLORS.gray[600];
@@ -1328,7 +1414,7 @@ const Panel = React.memo(({ title, subtitle, children, theme = "dark", style = {
       position: "relative",
       background: panelBg,
       borderRadius: "0",
-      padding: `${SPACING['4xl']}px ${SPACING['4xl']}px`,
+      padding: isMobile ? `${SPACING['2xl']}px ${SPACING.lg}px` : `${SPACING['4xl']}px ${SPACING['4xl']}px`,
       border: `1px solid ${panelBorder}`,
       transition: "all 0.3s ease",
       height: "100%",
@@ -1588,9 +1674,9 @@ export default function SpendingDashboard() {
 
   return (
     <div style={{
-      background: isMobile && theme === "dark" ? "#1a1a24" : currentTheme.background,
+      background: isMobile && theme === "dark" ? "#000000" : currentTheme.background,
       minHeight: "100vh",
-      padding: `${SPACING['7xl']}px ${SPACING['3xl']}px`,
+      padding: isMobile ? `${SPACING['3xl']}px ${SPACING.md}px` : `${SPACING['7xl']}px ${SPACING['3xl']}px`,
       fontFamily: "'Archivo Narrow', sans-serif",
       transition: "background 0.3s ease"
     }}>
