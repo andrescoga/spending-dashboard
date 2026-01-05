@@ -664,6 +664,11 @@ function CategoryTab({ title, data, subcats, palette, insights }) {
 
 // ============ OVERVIEW TAB ============
 function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCategories, groupMap, categoryData, theme = "dark" }) {
+  // Responsive hooks
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
+  const isTablet = useMediaQuery(BREAKPOINTS.tablet);
+  const chartHeight = isMobile ? CHART_HEIGHT_MOBILE : isTablet ? CHART_HEIGHT_TABLET : CHART_HEIGHT_DESKTOP;
+
   const [topN, setTopN] = useState(THRESHOLDS.topCategories.default);
   const [focusGroup, setFocusGroup] = useState("All");
   const [chartType, setChartType] = useState("bars");
