@@ -911,17 +911,20 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
             </ResponsiveContainer>
           </div>
           {/* Data grid for mobile - interactive month breakdown */}
-          {chartType === "bars" && <DataGrid data={dataForBars} colorMap={colorFor} selectedMonth={selectedMonth} onMonthSelect={setSelectedMonth} />}
-          {chartType === "bars" && !isMobile && (
-            <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <Tag text={`${activeSeries.length - 1} categories + Other`} />
-                <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px", borderRadius: 8, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+          {chartType === "bars" && <DataGrid data={dataForBars} colorMap={colorFor} selectedMonth={selectedMonth} onMonthSelect={setSelectedMonth} monthsData={monthsData} />}
+          {/* Controls below chart */}
+          {chartType === "bars" && (
+            <div style={{ marginTop: isMobile ? SPACING['2xl'] : 12, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: isMobile ? "center" : "space-between", alignItems: "center" }}>
+              {!isMobile && (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <Tag text={`${activeSeries.length - 1} categories + Other`} />
+                  <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
+                </div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "10px 16px" : "6px 12px", borderRadius: 8, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                   <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4" }} />
-                  <span style={{ color: excludeFamily ? "#4ecdc4" : "#888", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Exclude Family Care</span>
+                  <span style={{ color: excludeFamily ? "#4ecdc4" : "#888", fontSize: isMobile ? 12 : 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Exclude Family Care</span>
                 </label>
               </div>
             </div>
@@ -1327,13 +1330,17 @@ const TooltipBox = React.memo(({ active, payload, label }) => {
 TooltipBox.displayName = 'TooltipBox';
 
 // Interactive data grid for mobile - shows selected month's breakdown
-const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect }) => {
+const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, monthsData }) => {
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
   if (!isMobile || !data || data.length === 0) return null;
 
   // Default to most recent month if none selected
   const currentMonth = selectedMonth || data[data.length - 1]?.month;
   const monthData = data.find(m => m.month === currentMonth) || data[data.length - 1];
+
+  // Get income for the selected month
+  const monthInfo = monthsData?.find(m => m.month === currentMonth);
+  const income = monthInfo?.income || 0;
 
   // Extract categories and values for the selected month
   const categories = Object.entries(monthData)
@@ -1342,6 +1349,8 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect }) =
     .slice(0, 8); // Show top 8 categories
 
   const monthTotal = categories.reduce((sum, [, value]) => sum + value, 0);
+  const surplus = income - monthTotal;
+  const isSurplus = surplus >= 0;
 
   return (
     <div style={{ marginTop: SPACING['3xl'] }}>
@@ -1433,10 +1442,46 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect }) =
               color: COLORS.gray[600],
               fontSize: FONT_SIZE.xs
             }}>
-              {((value / monthTotal) * 100).toFixed(1)}%
+              {income > 0 ? ((value / income) * 100).toFixed(1) : 0}% of income
             </div>
           </div>
         ))}
+
+        {/* Total row - spans both columns */}
+        <div style={{
+          gridColumn: "1 / -1",
+          display: "flex",
+          flexDirection: "column",
+          gap: SPACING.xs,
+          padding: SPACING.lg,
+          background: `rgba(255,255,255,${OPACITY.surface.level2})`,
+          borderRadius: RADIUS.md,
+          border: `2px solid rgba(255,255,255,${OPACITY.border.strong})`
+        }}>
+          <div style={{
+            color: COLORS.gray[400],
+            fontSize: FONT_SIZE.sm,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.5px"
+          }}>
+            Total Spending
+          </div>
+          <div style={{
+            color: COLORS.white,
+            fontSize: FONT_SIZE.xl,
+            fontWeight: 800
+          }}>
+            {formatCurrency(monthTotal)}
+          </div>
+          <div style={{
+            color: isSurplus ? COLORS.accent.teal : COLORS.accent.red,
+            fontSize: FONT_SIZE.sm,
+            fontWeight: 700
+          }}>
+            {isSurplus ? '↑ ' : '↓ '}{formatCurrency(Math.abs(surplus))} {isSurplus ? 'surplus' : 'deficit'}
+          </div>
+        </div>
       </div>
     </div>
   );
