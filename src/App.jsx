@@ -994,9 +994,10 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
             theme={theme}
             style={{ border: "none", borderRadius: 0 }}
           >
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 10 }}>
             {Object.entries(totalsByGroup).sort((a, b) => b[1] - a[1]).map(([group, total]) => {
               const avgMonthly = monthsData.length > 0 ? total / monthsData.length : 0;
+              const percentOfIncome = totalIncome > 0 ? (total / totalIncome) * 100 : 0;
               const valueColor = theme === "light" ? "#1a1a1a" : "#fff";
               return (
                 <div key={group} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
@@ -1005,6 +1006,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                     <span style={{ color: "#aaa", fontSize: 12 }}>{group}</span>
                   </div>
                   <div style={{ color: valueColor, fontSize: 15, fontWeight: 700, marginBottom: 2, transition: "color 0.3s ease" }}>{formatCurrency(total)}</div>
+                  <div style={{ color: "#666", fontSize: 11, marginBottom: 2 }}>{percentOfIncome.toFixed(1)}% of income</div>
                   <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
                 </div>
               );
@@ -1340,9 +1342,13 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
   const monthInfo = monthsData?.find(m => m.month === currentMonth);
   const income = monthInfo?.income || 0;
 
-  // Extract categories and values for the selected month (exclude __TOTAL to avoid duplication)
+  // Extract categories and values for the selected month (exclude __TOTAL and similar to avoid duplication)
   const categories = Object.entries(monthData)
-    .filter(([key, value]) => key !== 'month' && key !== '__TOTAL' && typeof value === 'number' && value > 0)
+    .filter(([key, value]) => {
+      // Exclude: month, __TOTAL, TOTAL, or anything starting with underscore
+      if (key === 'month' || key.startsWith('_') || key.toUpperCase().includes('TOTAL')) return false;
+      return typeof value === 'number' && value > 0;
+    })
     .sort(([, a], [, b]) => b - a)
     .slice(0, 8); // Show top 8 categories
 
