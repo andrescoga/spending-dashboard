@@ -910,25 +910,23 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
               )}
             </ResponsiveContainer>
           </div>
-          {/* Data grid for mobile - interactive month breakdown */}
-          {chartType === "bars" && <DataGrid data={dataForBars} colorMap={colorFor} selectedMonth={selectedMonth} onMonthSelect={setSelectedMonth} monthsData={monthsData} />}
+          {/* Data grid for mobile - interactive month breakdown (shows for both chart types) */}
+          <DataGrid data={dataForBars} colorMap={colorFor} selectedMonth={selectedMonth} onMonthSelect={setSelectedMonth} monthsData={monthsData} />
           {/* Controls below chart */}
-          {chartType === "bars" && (
-            <div style={{ marginTop: isMobile ? SPACING['2xl'] : 12, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: isMobile ? "center" : "space-between", alignItems: "center" }}>
-              {!isMobile && (
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <Tag text={`${activeSeries.length - 1} categories + Other`} />
-                  <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
-                </div>
-              )}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "10px 16px" : "6px 12px", borderRadius: 8, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                  <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4" }} />
-                  <span style={{ color: excludeFamily ? "#4ecdc4" : "#888", fontSize: isMobile ? 12 : 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Exclude Family Care</span>
-                </label>
+          <div style={{ marginTop: isMobile ? SPACING['2xl'] : 12, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: isMobile ? "center" : "space-between", alignItems: "center" }}>
+            {!isMobile && chartType === "bars" && (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Tag text={`${activeSeries.length - 1} categories + Other`} />
+                <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
               </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "10px 16px" : "6px 12px", borderRadius: 8, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4" }} />
+                <span style={{ color: excludeFamily ? "#4ecdc4" : "#888", fontSize: isMobile ? 12 : 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Exclude Family Care</span>
+              </label>
             </div>
-          )}
+          </div>
           </Panel>
         </div>
 
@@ -1342,9 +1340,9 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
   const monthInfo = monthsData?.find(m => m.month === currentMonth);
   const income = monthInfo?.income || 0;
 
-  // Extract categories and values for the selected month
+  // Extract categories and values for the selected month (exclude __TOTAL to avoid duplication)
   const categories = Object.entries(monthData)
-    .filter(([key, value]) => key !== 'month' && typeof value === 'number' && value > 0)
+    .filter(([key, value]) => key !== 'month' && key !== '__TOTAL' && typeof value === 'number' && value > 0)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 8); // Show top 8 categories
 
