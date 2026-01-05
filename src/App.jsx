@@ -1005,8 +1005,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                     <div style={{ width: 8, height: 8, borderRadius: 2, background: colorFor(group) }} />
                     <span style={{ color: "#aaa", fontSize: 12 }}>{group}</span>
                   </div>
-                  <div style={{ color: valueColor, fontSize: 15, fontWeight: 700, marginBottom: 2, transition: "color 0.3s ease" }}>{formatCurrency(total)}</div>
-                  <div style={{ color: "#666", fontSize: 11, marginBottom: 2 }}>{percentOfIncome.toFixed(1)}% of income</div>
+                  <div style={{ color: valueColor, fontSize: 20, fontWeight: 800, marginBottom: 2, transition: "color 0.3s ease" }}>{percentOfIncome.toFixed(1)}%</div>
                   <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
                 </div>
               );
@@ -1023,8 +1022,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                     <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
                     <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL</span>
                   </div>
-                  <div style={{ color: valueColor, fontSize: 15, fontWeight: 800, marginBottom: 2, transition: "color 0.3s ease" }}>{formatCurrency(grandTotal)}</div>
-                  <div style={{ color: "#4ecdc4", fontSize: 11, marginBottom: 2, fontWeight: 700 }}>{percentOfIncome.toFixed(1)}% of income</div>
+                  <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2, transition: "color 0.3s ease" }}>{percentOfIncome.toFixed(1)}%</div>
                   <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
                 </div>
               );
