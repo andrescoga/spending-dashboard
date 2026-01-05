@@ -337,6 +337,37 @@ const A11Y = {
   controlPanel: 'Chart display controls',
 };
 
+// Responsive breakpoints
+const BREAKPOINTS = {
+  mobile: 480,
+  tablet: 768,
+  desktop: 1024,
+  wide: 1400
+};
+
+// Media query hook for responsive design
+function useMediaQuery(maxWidth) {
+  const [matches, setMatches] = React.useState(
+    typeof window !== 'undefined' ? window.innerWidth <= maxWidth : false
+  );
+
+  React.useEffect(() => {
+    const query = `(max-width: ${maxWidth}px)`;
+    const media = window.matchMedia(query);
+
+    const listener = () => setMatches(media.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [maxWidth]);
+
+  return matches;
+}
+
+// Responsive chart heights
+const CHART_HEIGHT_MOBILE = 260;
+const CHART_HEIGHT_TABLET = 320;
+const CHART_HEIGHT_DESKTOP = 380;
+
 function formatCurrency(n) {
   if (Number.isNaN(n) || n === null || n === undefined) return "$0";
   const abs = Math.abs(n);
@@ -798,14 +829,17 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
     <>
       <div style={{
         display: "grid",
-        gridTemplateColumns: "repeat(12, 1fr)",
-        gridTemplateRows: "auto auto",
+        gridTemplateColumns: isMobile ? "1fr" : isTablet ? "1fr" : "repeat(12, 1fr)",
+        gridTemplateRows: isMobile ? "auto auto auto auto" : "auto auto",
         gap: "1px",
         background: "#000000",
         marginBottom: "0"
       }}>
         {/* Top Left - Month Comparison */}
-        <div style={{ gridColumn: "span 8", gridRow: "1" }}>
+        <div style={{
+          gridColumn: isMobile ? "1" : isTablet ? "1" : "span 8",
+          gridRow: isMobile ? "1" : "1"
+        }}>
           <Panel
             title={chartType === "bars" ? "Month Comparison" : "Income vs Expenses"}
             subtitle={chartType === "bars" ? "NET spending by category" : "Spending as % of total income"}
@@ -813,7 +847,17 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
             style={{ border: "none", borderRadius: 0 }}
           >
           {/* Chart Controls - Upper Right */}
-          <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8, alignItems: "center", zIndex: 10 }}>
+          <div style={{
+            position: isMobile ? "static" : "absolute",
+            top: isMobile ? undefined : 16,
+            right: isMobile ? undefined : 16,
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            gap: 8,
+            alignItems: isMobile ? "stretch" : "center",
+            zIndex: 10,
+            marginBottom: isMobile ? 16 : undefined
+          }}>
             <ControlPill value={chartType} setValue={setChartType} options={["bars", "vs income"]} />
             <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 8, background: "rgba(255,255,255,0.03)", fontSize: 10, color: "#888" }}>
               <span style={{ textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 500 }}>TOP</span>
@@ -821,7 +865,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
               <span style={{ color: "#fff", fontWeight: 600, minWidth: "16px" }}>{topN}</span>
             </div>
           </div>
-          <div style={{ width: "100%", height: 420 }}>
+          <div style={{ width: "100%", height: chartHeight + 40 }}>
             <ResponsiveContainer width="100%" height="100%">
               {chartType === "bars" ? (
                 <BarChart data={dataForBars} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
@@ -872,7 +916,10 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
         </div>
 
         {/* Top Right - Total Trend */}
-        <div style={{ gridColumn: "span 4", gridRow: "1" }}>
+        <div style={{
+          gridColumn: isMobile ? "1" : isTablet ? "1" : "span 4",
+          gridRow: isMobile ? "2" : "1"
+        }}>
           <Panel
             title={focusGroup === "All" ? "Total Trend" : `Trend: ${focusGroup}`}
             theme={theme}
@@ -893,7 +940,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
               <span style={{ color: theme === "light" ? "#1a1a1a" : "#888", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>SHOW INCOME</span>
             </label>
           </div>
-          <div style={{ width: "100%", height: 240 }}>
+          <div style={{ width: "100%", height: chartHeight - 120 }}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={dataForArea} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
                 <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -922,7 +969,10 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
         </div>
 
         {/* Bottom Left - Group Totals */}
-        <div style={{ gridColumn: "span 8", gridRow: "2" }}>
+        <div style={{
+          gridColumn: isMobile ? "1" : isTablet ? "1" : "span 8",
+          gridRow: isMobile ? "3" : "2"
+        }}>
           <Panel
             title="Group Totals"
             subtitle="Ranked by total spend after credits applied"
@@ -949,7 +999,10 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
         </div>
 
         {/* Bottom Right - Recurrent Expenses */}
-        <div style={{ gridColumn: "span 4", gridRow: "2" }}>
+        <div style={{
+          gridColumn: isMobile ? "1" : isTablet ? "1" : "span 4",
+          gridRow: isMobile ? "4" : "2"
+        }}>
           <Panel title="Recurrent Expenses" theme={theme} style={{ border: "none", borderRadius: 0 }}>
           {(() => {
             // Helper function to convert to monthly average
@@ -1407,7 +1460,8 @@ const ControlPill = React.memo(({ label, value, setValue, options }) => {
               key={opt}
               onClick={() => setValue(opt)}
               style={{
-                padding: `${SPACING.md}px ${SPACING.xl}px`,
+                padding: `${SPACING.xl}px ${SPACING['2xl']}px`,
+                minHeight: "44px",
                 borderRadius: RADIUS.lg,
                 border: active
                   ? `1px solid rgba(255,255,255,${OPACITY.border.strong})`
@@ -1437,6 +1491,11 @@ export default function SpendingDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [excludeFamily, setExcludeFamily] = useState(false);
   const [theme, setTheme] = useState("dark"); // "dark" or "light"
+
+  // Responsive hooks
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
+  const isTablet = useMediaQuery(BREAKPOINTS.tablet);
+  const chartHeight = isMobile ? CHART_HEIGHT_MOBILE : isTablet ? CHART_HEIGHT_TABLET : CHART_HEIGHT_DESKTOP;
 
   // Theme colors
   const themeColors = {
@@ -1673,11 +1732,12 @@ export default function SpendingDashboard() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               style={{
-                padding: `${SPACING.lg}px ${SPACING['3xl']}px`,
+                padding: isMobile ? `${SPACING['2xl']}px ${SPACING['4xl']}px` : `${SPACING.lg}px ${SPACING['3xl']}px`,
+                minHeight: isMobile ? "44px" : undefined,
                 border: "none",
                 background: "transparent",
                 color: theme === "light" ? "#1a1a1a" : currentTheme.textTertiary,
-                fontSize: FONT_SIZE.md,
+                fontSize: isMobile ? FONT_SIZE.base : FONT_SIZE.md,
                 fontWeight: activeTab === tab.id ? 800 : 400,
                 cursor: "pointer",
                 transition: "all 0.2s ease",
