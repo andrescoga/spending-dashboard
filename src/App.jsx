@@ -989,18 +989,6 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
           {/* Group Summary Cards - below chart on desktop only, linked to month selection */}
           {!isMobile && (
             <div style={{ marginTop: SPACING['3xl'] }}>
-              {/* Stat boxes for overview */}
-              <div style={{ marginBottom: SPACING['3xl'], display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                <StatBox label="Total Income" value={formatCurrency(totalIncome)} subtext={`Avg: ${formatCurrency(monthsData.length > 0 ? totalIncome / monthsData.length : 0)}/mo`} theme={theme} />
-                <StatBox
-                  label={monthlySurplus >= 0 ? "Monthly Surplus" : "Monthly Deficit"}
-                  value={formatCurrency(Math.abs(monthlySurplus))}
-                  subtext={monthlySurplus >= 0 ? "Saving" : "Overspending"}
-                  theme={theme}
-                />
-                <StatBox label="Lowest" value={formatCurrency(lowestMonth.value)} subtext={lowestMonth.month} theme={theme} />
-              </div>
-
               {/* Group summary cards - responsive to month selection */}
               {selectedMonth === "All" ? (
                 /* Show Group Totals when "All" selected */
@@ -1020,7 +1008,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                       </div>
                     );
                   })}
-                  {/* Total card with teal accent */}
+                  {/* Total spending card with teal accent */}
                   {(() => {
                     const grandTotal = Object.values(totalsByGroup).reduce((sum, val) => sum + val, 0);
                     const avgMonthly = monthsData.length > 0 ? grandTotal / monthsData.length : 0;
@@ -1029,10 +1017,24 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                       <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                           <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
-                          <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL</span>
+                          <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL SPENDING</span>
                         </div>
-                        <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{percentOfIncome.toFixed(1)}%</div>
-                        <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
+                        <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(avgMonthly)}/mo</div>
+                        <div style={{ color: "#666", fontSize: 11 }}>{percentOfIncome.toFixed(1)}% of income</div>
+                      </div>
+                    );
+                  })()}
+                  {/* Total income card */}
+                  {(() => {
+                    const avgIncome = monthsData.length > 0 ? totalIncome / monthsData.length : 0;
+                    return (
+                      <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
+                          <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL INCOME</span>
+                        </div>
+                        <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(avgIncome)}/mo</div>
+                        <div style={{ color: "#666", fontSize: 11 }}>Total: {formatCurrency(totalIncome)}</div>
                       </div>
                     );
                   })()}
@@ -1059,87 +1061,40 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
 
                   return (
                     <>
-                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: SPACING.md, marginBottom: SPACING['2xl'] }}>
-                        {categories.slice(0, 8).map(([category, value]) => (
-                          <div key={category} style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: SPACING.xs,
-                            padding: SPACING.lg,
-                            background: `rgba(255,255,255,${OPACITY.surface.level1})`,
-                            borderRadius: RADIUS.md,
-                            border: `1px solid rgba(255,255,255,${OPACITY.border.default})`
-                          }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: SPACING.md }}>
-                              <div style={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: "50%",
-                                background: colorFor(category),
-                                flexShrink: 0
-                              }} />
-                              <div style={{
-                                color: COLORS.gray[400],
-                                fontSize: FONT_SIZE.sm,
-                                fontWeight: 600,
-                                textTransform: "uppercase",
-                                letterSpacing: "0.5px",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap"
-                              }}>
-                                {category}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+                        {categories.map(([category, value]) => {
+                          const percentOfIncome = income > 0 ? ((value / income) * 100) : 0;
+                          const valueColor = theme === "light" ? "#1a1a1a" : "#fff";
+                          return (
+                            <div key={category} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                <div style={{ width: 8, height: 8, borderRadius: 2, background: colorFor(category) }} />
+                                <span style={{ color: "#aaa", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{category}</span>
                               </div>
+                              <div style={{ color: valueColor, fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(value)}</div>
+                              <div style={{ color: "#666", fontSize: 11 }}>{percentOfIncome.toFixed(1)}% of income</div>
                             </div>
-                            <div style={{
-                              color: COLORS.white,
-                              fontSize: FONT_SIZE.lg,
-                              fontWeight: 800
-                            }}>
-                              {formatCurrency(value)}
-                            </div>
-                            <div style={{
-                              color: COLORS.gray[600],
-                              fontSize: FONT_SIZE.xs
-                            }}>
-                              {income > 0 ? ((value / income) * 100).toFixed(1) : 0}% of income
-                            </div>
+                          );
+                        })}
+                        {/* Total spending card */}
+                        <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
+                            <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL SPENDING</span>
                           </div>
-                        ))}
-                      </div>
-
-                      {/* Total row */}
-                      <div style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: SPACING.xs,
-                        padding: SPACING.lg,
-                        background: `rgba(255,255,255,${OPACITY.surface.level2})`,
-                        borderRadius: RADIUS.md,
-                        border: `2px solid rgba(255,255,255,${OPACITY.border.strong})`
-                      }}>
-                        <div style={{
-                          color: COLORS.gray[400],
-                          fontSize: FONT_SIZE.sm,
-                          fontWeight: 600,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px"
-                        }}>
-                          Total Spending
+                          <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(monthTotal)}</div>
+                          <div style={{ color: isSurplus ? "#4ecdc4" : "#ff6b6b", fontSize: 11 }}>
+                            {isSurplus ? '↑ ' : '↓ '}{formatCurrency(Math.abs(surplus))} {isSurplus ? 'surplus' : 'deficit'}
+                          </div>
                         </div>
-                        <div style={{
-                          color: COLORS.white,
-                          fontSize: FONT_SIZE.xl,
-                          fontWeight: 800
-                        }}>
-                          {formatCurrency(monthTotal)}
-                        </div>
-                        <div style={{
-                          color: isSurplus ? COLORS.accent.teal : COLORS.accent.red,
-                          fontSize: FONT_SIZE.sm,
-                          fontWeight: 700
-                        }}>
-                          {isSurplus ? '↑ ' : '↓ '}{formatCurrency(Math.abs(surplus))} {isSurplus ? 'surplus' : 'deficit'}
+                        {/* Income card for the month */}
+                        <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                            <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
+                            <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>INCOME</span>
+                          </div>
+                          <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(income)}</div>
+                          <div style={{ color: "#666", fontSize: 11 }}>{selectedMonth}</div>
                         </div>
                       </div>
                     </>
