@@ -675,11 +675,10 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
   const isTablet = useMediaQuery(BREAKPOINTS.tablet);
   const chartHeight = isMobile ? CHART_HEIGHT_MOBILE : isTablet ? CHART_HEIGHT_TABLET : CHART_HEIGHT_DESKTOP;
 
-  const [topN, setTopN] = useState(THRESHOLDS.topCategories.default);
   const [focusGroup, setFocusGroup] = useState("All");
   const [chartType, setChartType] = useState("bars");
   const [showIncome, setShowIncome] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(null); // For mobile DataGrid
+  const [selectedMonth, setSelectedMonth] = useState("All"); // For mobile DataGrid - default to "All"
 
   // Calculate dynamic insights
   const actualRent = useMemo(() => {
@@ -717,7 +716,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
     filteredMonths.forEach((m) => { groups.forEach((g) => { totalsByGroup[g] += Number(m[g] ?? 0); }); });
 
     const ordered = [...groups].sort((a, b) => (totalsByGroup[b] || 0) - (totalsByGroup[a] || 0));
-    const topGroups = ordered.slice(0, clamp(topN, THRESHOLDS.topCategories.min, ordered.length));
+    const topGroups = ordered; // Show all groups instead of limiting to top N
 
     const monthlyTotals = filteredMonths.map((m) => {
       const total = groups.reduce((s, g) => s + Number(m[g] ?? 0), 0);
@@ -732,8 +731,6 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
       const row = { month: m.month };
       const monthTotal = groups.reduce((s, g) => s + Number(m[g] ?? 0), 0);
       topGroups.forEach((g) => { const v = Number(m[g] ?? 0); row[g] = v; });
-      const rest = groups.filter((g) => !topGroups.includes(g)).reduce((s, g) => s + Number(m[g] ?? 0), 0);
-      row["Other"] = rest;
       row.__total = monthTotal;
       return row;
     });
@@ -742,7 +739,6 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
       const row = { month: m.month };
       const monthTotal = groups.reduce((s, g) => s + Number(m[g] ?? 0), 0);
       if (focusGroup === "All") row.value = monthTotal;
-      else if (focusGroup === "Other") row.value = groups.filter((g) => !topGroups.includes(g)).reduce((s, g) => s + Number(m[g] ?? 0), 0);
       else row.value = Number(m[focusGroup] ?? 0);
 
       // Add income data from API
@@ -752,9 +748,37 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
     });
 
     return { groups, totalsByGroup, topGroups, dataForBars, dataForArea, monthlyTotals, spikes };
-  }, [topN, focusGroup, excludeFamily, monthsData, givingCategories, groupMap]);
+  }, [focusGroup, excludeFamily, monthsData, givingCategories, groupMap]);
 
-  const activeSeries = [...topGroups, "Other"];
+  // Prepare data for single-month group breakdown (when specific month selected on mobile)
+  const singleMonthGroupData = useMemo(() => {
+    if (!isMobile || selectedMonth === "All" || !selectedMonth || !categoryData || !groupMap) return null;
+
+    // Find the selected month's data
+    const monthIndex = monthsData.findIndex(m => m.month === selectedMonth);
+    if (monthIndex === -1) return null;
+
+    // Build data structure: one bar per group, categories stacked within
+    const groupBars = [];
+    Object.entries(groupMap).forEach(([group, categories]) => {
+      const bar = { group };
+      categories.forEach(category => {
+        const categoryMonthData = categoryData[group]?.[monthIndex];
+        const value = categoryMonthData?.[category] || 0;
+        if (value > 0) {
+          bar[category] = value;
+        }
+      });
+      // Only include groups with at least one category with value > 0
+      if (Object.keys(bar).length > 1) {
+        groupBars.push(bar);
+      }
+    });
+
+    return groupBars;
+  }, [selectedMonth, isMobile, monthsData, categoryData, groupMap]);
+
+  const activeSeries = [...topGroups]; // Show all groups
   const colorFor = useCallback((key) => {
     // Use fixed colors for spending groups
     if (GROUP_COLORS[key]) {
@@ -859,35 +883,54 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
             style={{ border: "none", borderRadius: 0 }}
           >
           {/* Chart Controls - Upper Right */}
-          <div style={{
-            position: isMobile ? "static" : "absolute",
-            top: isMobile ? undefined : 16,
-            right: isMobile ? undefined : 16,
-            display: "flex",
-            flexDirection: isMobile ? "column" : "row",
-            gap: 8,
-            alignItems: isMobile ? "stretch" : "center",
-            zIndex: 10,
-            marginBottom: isMobile ? 16 : undefined
-          }}>
-            <ControlPill value={chartType} setValue={setChartType} options={["bars", "vs income"]} />
-            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 8, background: "rgba(255,255,255,0.03)", fontSize: 10, color: "#888" }}>
-              <span style={{ textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 500 }}>TOP</span>
-              <input type="range" min={3} max={10} value={topN} onChange={(e) => setTopN(Number(e.target.value))} style={{ width: 60 }} />
-              <span style={{ color: "#fff", fontWeight: 600, minWidth: "16px" }}>{topN}</span>
+          {!isMobile && (
+            <div style={{
+              position: "absolute",
+              top: 16,
+              right: 16,
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              zIndex: 10
+            }}>
+              <ControlPill value={chartType} setValue={setChartType} options={["bars", "vs income"]} />
             </div>
-          </div>
+          )}
           <div style={{ width: "100%", height: chartHeight + 40 }}>
             <ResponsiveContainer width="100%" height="100%">
               {chartType === "bars" ? (
-                <BarChart data={dataForBars} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
-                  <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fill: theme === "light" ? "#1a1a1a" : "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
-                  <YAxis tick={{ fill: theme === "light" ? "#1a1a1a" : "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
-                  {!isMobile && <Tooltip content={<TooltipBox scale="absolute" />} />}
-                  {!isMobile && <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 11 }} />}
-                  {activeSeries.map((key) => (<Bar key={key} dataKey={key} stackId="a" fill={colorFor(key)} radius={[3, 3, 0, 0]} maxBarSize={36} opacity={key === "Other" ? 0.7 : 0.95} />))}
-                </BarChart>
+                // Check if we should show single-month group breakdown
+                singleMonthGroupData && singleMonthGroupData.length > 0 ? (
+                  <BarChart data={singleMonthGroupData} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="group" tick={{ fill: theme === "light" ? "#1a1a1a" : "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
+                    <YAxis tick={{ fill: theme === "light" ? "#1a1a1a" : "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
+                    {!isMobile && <Tooltip content={<TooltipBox scale="absolute" />} />}
+                    {!isMobile && <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 11 }} />}
+                    {/* Stack categories within each group */}
+                    {(() => {
+                      // Extract all unique categories from the data
+                      const allCategories = new Set();
+                      singleMonthGroupData.forEach(bar => {
+                        Object.keys(bar).forEach(key => {
+                          if (key !== 'group') allCategories.add(key);
+                        });
+                      });
+                      return Array.from(allCategories).map(category => (
+                        <Bar key={category} dataKey={category} stackId="a" fill={colorFor(category)} radius={[3, 3, 0, 0]} maxBarSize={36} opacity={0.95} />
+                      ));
+                    })()}
+                  </BarChart>
+                ) : (
+                  <BarChart data={dataForBars} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
+                    <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fill: theme === "light" ? "#1a1a1a" : "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
+                    <YAxis tick={{ fill: theme === "light" ? "#1a1a1a" : "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
+                    {!isMobile && <Tooltip content={<TooltipBox scale="absolute" />} />}
+                    {!isMobile && <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 11 }} />}
+                    {activeSeries.map((key) => (<Bar key={key} dataKey={key} stackId="a" fill={colorFor(key)} radius={[3, 3, 0, 0]} maxBarSize={36} opacity={0.95} />))}
+                  </BarChart>
+                )
               ) : (
                 <PieChart>
                   <Pie
@@ -911,12 +954,20 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
             </ResponsiveContainer>
           </div>
           {/* Data grid for mobile - interactive month breakdown (shows for both chart types) */}
-          <DataGrid data={dataForBars} colorMap={colorFor} selectedMonth={selectedMonth} onMonthSelect={setSelectedMonth} monthsData={monthsData} />
+          <DataGrid
+            data={dataForBars}
+            colorMap={colorFor}
+            selectedMonth={selectedMonth}
+            onMonthSelect={setSelectedMonth}
+            monthsData={monthsData}
+            totalsByGroup={totalsByGroup}
+            totalIncome={totalIncome}
+          />
           {/* Controls below chart */}
           <div style={{ marginTop: isMobile ? SPACING['2xl'] : 12, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: isMobile ? "center" : "space-between", alignItems: "center" }}>
             {!isMobile && chartType === "bars" && (
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <Tag text={`${activeSeries.length - 1} categories + Other`} />
+                <Tag text={`${activeSeries.length} groups`} />
                 <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
               </div>
             )}
@@ -947,7 +998,6 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
               <select value={focusGroup} onChange={(e) => setFocusGroup(e.target.value)} style={{ background: "rgba(0,0,0,0.25)", color: "#fff", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 4, padding: "3px 6px", fontSize: 10, outline: "none", textTransform: "uppercase" }}>
                 <option value="All">ALL</option>
                 {topGroups.map((g) => <option key={g} value={g}>{g.toUpperCase()}</option>)}
-                <option value="Other">OTHER</option>
               </select>
             </div>
             <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
@@ -1345,31 +1395,32 @@ const TooltipBox = React.memo(({ active, payload, label }) => {
 });
 TooltipBox.displayName = 'TooltipBox';
 
-// Interactive data grid for mobile - shows selected month's breakdown
-const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, monthsData }) => {
+// Interactive data grid for mobile - shows selected month's breakdown or all groups
+const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, monthsData, totalsByGroup, totalIncome }) => {
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
   if (!isMobile || !data || data.length === 0) return null;
 
-  // Default to most recent month if none selected
-  const currentMonth = selectedMonth || data[data.length - 1]?.month;
-  const monthData = data.find(m => m.month === currentMonth) || data[data.length - 1];
+  // Default to "All" if none selected
+  const currentMonth = selectedMonth || "All";
+  const isAllView = currentMonth === "All";
+  const monthData = !isAllView ? (data.find(m => m.month === currentMonth) || data[data.length - 1]) : null;
 
-  // Get income for the selected month
-  const monthInfo = monthsData?.find(m => m.month === currentMonth);
+  // Get income for the selected month (only for individual month view)
+  const monthInfo = !isAllView ? monthsData?.find(m => m.month === currentMonth) : null;
   const income = monthInfo?.income || 0;
 
-  // Extract categories and values for the selected month (exclude __TOTAL and similar to avoid duplication)
-  const categories = Object.entries(monthData)
+  // Extract categories and values for the selected month (only for individual month view)
+  const categories = !isAllView ? Object.entries(monthData)
     .filter(([key, value]) => {
       // Exclude: month, __TOTAL, TOTAL, or anything starting with underscore
       if (key === 'month' || key.startsWith('_') || key.toUpperCase().includes('TOTAL')) return false;
       return typeof value === 'number' && value > 0;
     })
     .sort(([, a], [, b]) => b - a)
-    .slice(0, 8); // Show top 8 categories
+    .slice(0, 8) : []; // Show top 8 categories
 
-  const monthTotal = categories.reduce((sum, [, value]) => sum + value, 0);
-  const surplus = income - monthTotal;
+  const monthTotal = !isAllView ? categories.reduce((sum, [, value]) => sum + value, 0) : 0;
+  const surplus = !isAllView ? (income - monthTotal) : 0;
   const isSurplus = surplus >= 0;
 
   return (
@@ -1388,7 +1439,7 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
           textTransform: "uppercase",
           letterSpacing: "1px"
         }}>
-          Month:
+          {isAllView ? "View:" : "Month:"}
         </div>
         <select
           value={currentMonth}
@@ -1406,6 +1457,7 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
             fontFamily: "inherit"
           }}
         >
+          <option value="All">All Groups</option>
           {data.map((m) => (
             <option key={m.month} value={m.month}>
               {m.month}
@@ -1414,95 +1466,132 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
         </select>
       </div>
 
-      {/* Category grid */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: SPACING.md
-      }}>
-        {categories.map(([category, value]) => (
-          <div key={category} style={{
+      {/* Grid - shows Group Totals for "All" or individual month categories */}
+      {isAllView ? (
+        /* Group Totals view - percentage-first format */
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+          {Object.entries(totalsByGroup).sort((a, b) => b[1] - a[1]).map(([group, total]) => {
+            const avgMonthly = monthsData.length > 0 ? total / monthsData.length : 0;
+            const percentOfIncome = totalIncome > 0 ? (total / totalIncome) * 100 : 0;
+            return (
+              <div key={group} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: colorMap(group) }} />
+                  <span style={{ color: "#aaa", fontSize: 12 }}>{group}</span>
+                </div>
+                <div style={{ color: "#fff", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{percentOfIncome.toFixed(1)}%</div>
+                <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
+              </div>
+            );
+          })}
+          {/* Total card with teal accent */}
+          {(() => {
+            const grandTotal = Object.values(totalsByGroup).reduce((sum, val) => sum + val, 0);
+            const avgMonthly = monthsData.length > 0 ? grandTotal / monthsData.length : 0;
+            const percentOfIncome = totalIncome > 0 ? (grandTotal / totalIncome) * 100 : 0;
+            return (
+              <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
+                  <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL</span>
+                </div>
+                <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{percentOfIncome.toFixed(1)}%</div>
+                <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
+              </div>
+            );
+          })()}
+        </div>
+      ) : (
+        /* Individual month view - category breakdown */
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: SPACING.md
+        }}>
+          {categories.map(([category, value]) => (
+            <div key={category} style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: SPACING.xs,
+              padding: SPACING.lg,
+              background: `rgba(255,255,255,${OPACITY.surface.level1})`,
+              borderRadius: RADIUS.md,
+              border: `1px solid rgba(255,255,255,${OPACITY.border.default})`
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: SPACING.md }}>
+                <div style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: colorMap(category),
+                  flexShrink: 0
+                }} />
+                <div style={{
+                  color: COLORS.gray[400],
+                  fontSize: FONT_SIZE.sm,
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap"
+                }}>
+                  {category}
+                </div>
+              </div>
+              <div style={{
+                color: COLORS.white,
+                fontSize: FONT_SIZE.lg,
+                fontWeight: 800
+              }}>
+                {formatCurrency(value)}
+              </div>
+              <div style={{
+                color: COLORS.gray[600],
+                fontSize: FONT_SIZE.xs
+              }}>
+                {income > 0 ? ((value / income) * 100).toFixed(1) : 0}% of income
+              </div>
+            </div>
+          ))}
+
+          {/* Total row - spans both columns */}
+          <div style={{
+            gridColumn: "1 / -1",
             display: "flex",
             flexDirection: "column",
             gap: SPACING.xs,
             padding: SPACING.lg,
-            background: `rgba(255,255,255,${OPACITY.surface.level1})`,
+            background: `rgba(255,255,255,${OPACITY.surface.level2})`,
             borderRadius: RADIUS.md,
-            border: `1px solid rgba(255,255,255,${OPACITY.border.default})`
+            border: `2px solid rgba(255,255,255,${OPACITY.border.strong})`
           }}>
-            <div style={{ display: "flex", alignItems: "center", gap: SPACING.md }}>
-              <div style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: colorMap(category),
-                flexShrink: 0
-              }} />
-              <div style={{
-                color: COLORS.gray[400],
-                fontSize: FONT_SIZE.sm,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
-              }}>
-                {category}
-              </div>
+            <div style={{
+              color: COLORS.gray[400],
+              fontSize: FONT_SIZE.sm,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px"
+            }}>
+              Total Spending
             </div>
             <div style={{
               color: COLORS.white,
-              fontSize: FONT_SIZE.lg,
+              fontSize: FONT_SIZE.xl,
               fontWeight: 800
             }}>
-              {formatCurrency(value)}
+              {formatCurrency(monthTotal)}
             </div>
             <div style={{
-              color: COLORS.gray[600],
-              fontSize: FONT_SIZE.xs
+              color: isSurplus ? COLORS.accent.teal : COLORS.accent.red,
+              fontSize: FONT_SIZE.sm,
+              fontWeight: 700
             }}>
-              {income > 0 ? ((value / income) * 100).toFixed(1) : 0}% of income
+              {isSurplus ? '↑ ' : '↓ '}{formatCurrency(Math.abs(surplus))} {isSurplus ? 'surplus' : 'deficit'}
             </div>
           </div>
-        ))}
-
-        {/* Total row - spans both columns */}
-        <div style={{
-          gridColumn: "1 / -1",
-          display: "flex",
-          flexDirection: "column",
-          gap: SPACING.xs,
-          padding: SPACING.lg,
-          background: `rgba(255,255,255,${OPACITY.surface.level2})`,
-          borderRadius: RADIUS.md,
-          border: `2px solid rgba(255,255,255,${OPACITY.border.strong})`
-        }}>
-          <div style={{
-            color: COLORS.gray[400],
-            fontSize: FONT_SIZE.sm,
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.5px"
-          }}>
-            Total Spending
-          </div>
-          <div style={{
-            color: COLORS.white,
-            fontSize: FONT_SIZE.xl,
-            fontWeight: 800
-          }}>
-            {formatCurrency(monthTotal)}
-          </div>
-          <div style={{
-            color: isSurplus ? COLORS.accent.teal : COLORS.accent.red,
-            fontSize: FONT_SIZE.sm,
-            fontWeight: 700
-          }}>
-            {isSurplus ? '↑ ' : '↓ '}{formatCurrency(Math.abs(surplus))} {isSurplus ? 'surplus' : 'deficit'}
-          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 });
