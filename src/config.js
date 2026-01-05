@@ -2,7 +2,7 @@
 // Use Vercel function URL in production, localhost for development
 export const API_BASE_URL = import.meta.env.VITE_API_URL ||
   (import.meta.env.MODE === 'production'
-    ? 'https://your-username.vercel.app'  // Replace with your Vercel URL after deployment
+    ? 'https://spending-dashboard-arf7091ng-andres-projects-001d1aae.vercel.app'
     : 'http://localhost:3001');
 
 // Endpoint configuration: obscure in production, normal in development
