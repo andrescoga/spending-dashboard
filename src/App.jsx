@@ -994,7 +994,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
             theme={theme}
             style={{ border: "none", borderRadius: 0 }}
           >
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             {Object.entries(totalsByGroup).sort((a, b) => b[1] - a[1]).map(([group, total]) => {
               const avgMonthly = monthsData.length > 0 ? total / monthsData.length : 0;
               const percentOfIncome = totalIncome > 0 ? (total / totalIncome) * 100 : 0;
@@ -1011,6 +1011,24 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                 </div>
               );
             })}
+            {/* Total card */}
+            {(() => {
+              const grandTotal = Object.values(totalsByGroup).reduce((sum, val) => sum + val, 0);
+              const avgMonthly = monthsData.length > 0 ? grandTotal / monthsData.length : 0;
+              const percentOfIncome = totalIncome > 0 ? (grandTotal / totalIncome) * 100 : 0;
+              const valueColor = theme === "light" ? "#1a1a1a" : "#fff";
+              return (
+                <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
+                    <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL</span>
+                  </div>
+                  <div style={{ color: valueColor, fontSize: 15, fontWeight: 800, marginBottom: 2, transition: "color 0.3s ease" }}>{formatCurrency(grandTotal)}</div>
+                  <div style={{ color: "#4ecdc4", fontSize: 11, marginBottom: 2, fontWeight: 700 }}>{percentOfIncome.toFixed(1)}% of income</div>
+                  <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
+                </div>
+              );
+            })()}
           </div>
           </Panel>
         </div>
