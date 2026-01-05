@@ -379,7 +379,11 @@ function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 
 // ============ REUSABLE CHART COMPONENTS ============
 
-const CategoryBarChart = React.memo(({ data, subcats, palette, viewMode }) => {
+const CategoryBarChart = React.memo(({ data, subcats, palette, viewMode, selectedMonth, onMonthSelect }) => {
+  const [localSelectedMonth, setLocalSelectedMonth] = useState(null);
+  const currentMonth = selectedMonth !== undefined ? selectedMonth : localSelectedMonth;
+  const handleMonthSelect = onMonthSelect || setLocalSelectedMonth;
+
   return (
     <div style={{ width: "100%", height: CHART.height.default }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -410,7 +414,7 @@ const CategoryBarChart = React.memo(({ data, subcats, palette, viewMode }) => {
         </BarChart>
       </ResponsiveContainer>
       {/* Data grid for mobile */}
-      <DataGrid data={data} colorMap={(key) => palette[key]} />
+      <DataGrid data={data} colorMap={(key) => palette[key]} selectedMonth={currentMonth} onMonthSelect={handleMonthSelect} />
     </div>
   );
 });
@@ -675,6 +679,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
   const [focusGroup, setFocusGroup] = useState("All");
   const [chartType, setChartType] = useState("bars");
   const [showIncome, setShowIncome] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(null); // For mobile DataGrid
 
   // Calculate dynamic insights
   const actualRent = useMemo(() => {
@@ -905,9 +910,9 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
               )}
             </ResponsiveContainer>
           </div>
-          {/* Data grid for mobile - constant breakdown below chart */}
-          {chartType === "bars" && <DataGrid data={dataForBars} colorMap={colorFor} />}
-          {chartType === "bars" && (
+          {/* Data grid for mobile - interactive month breakdown */}
+          {chartType === "bars" && <DataGrid data={dataForBars} colorMap={colorFor} selectedMonth={selectedMonth} onMonthSelect={setSelectedMonth} />}
+          {chartType === "bars" && !isMobile && (
             <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <Tag text={`${activeSeries.length - 1} categories + Other`} />
@@ -1321,82 +1326,118 @@ const TooltipBox = React.memo(({ active, payload, label }) => {
 });
 TooltipBox.displayName = 'TooltipBox';
 
-// Constant data grid for mobile - shows category breakdown without tooltips
-const DataGrid = React.memo(({ data, colorMap }) => {
+// Interactive data grid for mobile - shows selected month's breakdown
+const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect }) => {
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
-  if (!isMobile) return null;
+  if (!isMobile || !data || data.length === 0) return null;
 
-  // Calculate totals for each category
-  const categoryTotals = {};
-  data.forEach(month => {
-    Object.keys(month).forEach(key => {
-      if (key !== 'month' && typeof month[key] === 'number') {
-        categoryTotals[key] = (categoryTotals[key] || 0) + month[key];
-      }
-    });
-  });
+  // Default to most recent month if none selected
+  const currentMonth = selectedMonth || data[data.length - 1]?.month;
+  const monthData = data.find(m => m.month === currentMonth) || data[data.length - 1];
 
-  // Sort by total and get top categories
-  const sortedCategories = Object.entries(categoryTotals)
+  // Extract categories and values for the selected month
+  const categories = Object.entries(monthData)
+    .filter(([key, value]) => key !== 'month' && typeof value === 'number' && value > 0)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 8); // Show top 8 categories
 
-  const grandTotal = sortedCategories.reduce((sum, [, value]) => sum + value, 0);
+  const monthTotal = categories.reduce((sum, [, value]) => sum + value, 0);
 
   return (
-    <div style={{
-      marginTop: SPACING['3xl'],
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: SPACING.md,
-      padding: `${SPACING['2xl']}px 0`
-    }}>
-      {sortedCategories.map(([category, value]) => (
-        <div key={category} style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: SPACING.xs,
-          padding: SPACING.lg,
-          background: `rgba(255,255,255,${OPACITY.surface.level1})`,
-          borderRadius: RADIUS.md,
-          border: `1px solid rgba(255,255,255,${OPACITY.border.default})`
+    <div style={{ marginTop: SPACING['3xl'] }}>
+      {/* Month selector */}
+      <div style={{
+        marginBottom: SPACING['2xl'],
+        display: "flex",
+        alignItems: "center",
+        gap: SPACING.md
+      }}>
+        <div style={{
+          color: COLORS.gray[600],
+          fontSize: FONT_SIZE.sm,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "1px"
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: SPACING.md }}>
+          Month:
+        </div>
+        <select
+          value={currentMonth}
+          onChange={(e) => onMonthSelect && onMonthSelect(e.target.value)}
+          style={{
+            flex: 1,
+            padding: `${SPACING.md}px ${SPACING.lg}px`,
+            borderRadius: RADIUS.md,
+            border: `1px solid rgba(255,255,255,${OPACITY.border.default})`,
+            background: `rgba(255,255,255,${OPACITY.surface.level1})`,
+            color: COLORS.white,
+            fontSize: FONT_SIZE.base,
+            fontWeight: 700,
+            cursor: "pointer",
+            fontFamily: "inherit"
+          }}
+        >
+          {data.map((m) => (
+            <option key={m.month} value={m.month}>
+              {m.month}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Category grid */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: SPACING.md
+      }}>
+        {categories.map(([category, value]) => (
+          <div key={category} style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: SPACING.xs,
+            padding: SPACING.lg,
+            background: `rgba(255,255,255,${OPACITY.surface.level1})`,
+            borderRadius: RADIUS.md,
+            border: `1px solid rgba(255,255,255,${OPACITY.border.default})`
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: SPACING.md }}>
+              <div style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: colorMap(category),
+                flexShrink: 0
+              }} />
+              <div style={{
+                color: COLORS.gray[400],
+                fontSize: FONT_SIZE.sm,
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap"
+              }}>
+                {category}
+              </div>
+            </div>
             <div style={{
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: colorMap(category),
-              flexShrink: 0
-            }} />
-            <div style={{
-              color: COLORS.gray[400],
-              fontSize: FONT_SIZE.sm,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.5px",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap"
+              color: COLORS.white,
+              fontSize: FONT_SIZE.lg,
+              fontWeight: 800
             }}>
-              {category}
+              {formatCurrency(value)}
+            </div>
+            <div style={{
+              color: COLORS.gray[600],
+              fontSize: FONT_SIZE.xs
+            }}>
+              {((value / monthTotal) * 100).toFixed(1)}%
             </div>
           </div>
-          <div style={{
-            color: COLORS.white,
-            fontSize: FONT_SIZE.lg,
-            fontWeight: 800
-          }}>
-            {formatCurrency(value)}
-          </div>
-          <div style={{
-            color: COLORS.gray[600],
-            fontSize: FONT_SIZE.xs
-          }}>
-            {((value / grandTotal) * 100).toFixed(1)}%
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 });
@@ -1420,19 +1461,20 @@ const Panel = React.memo(({ title, subtitle, children, theme = "dark", style = {
       height: "100%",
       ...style
     }}>
-      <div style={{
-        display: "flex",
-        justifyContent: "space-between",
-        gap: SPACING.lg,
-        marginBottom: SPACING['2xl']
-      }}>
-        <div>
-          <div style={{ fontSize: FONT_SIZE.lg, fontWeight: 800, color: titleColor, transition: "color 0.3s ease" }}>
-            {title}
-          </div>
-          {subtitle && (
-            <div style={{
-              marginTop: SPACING.xs,
+      {!isMobile && (
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: SPACING.lg,
+          marginBottom: SPACING['2xl']
+        }}>
+          <div>
+            <div style={{ fontSize: FONT_SIZE.lg, fontWeight: 800, color: titleColor, transition: "color 0.3s ease" }}>
+              {title}
+            </div>
+            {subtitle && (
+              <div style={{
+                marginTop: SPACING.xs,
               fontSize: FONT_SIZE.base,
               color: subtitleColor,
               transition: "color 0.3s ease"
@@ -1441,7 +1483,8 @@ const Panel = React.memo(({ title, subtitle, children, theme = "dark", style = {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      )}
       {children}
     </div>
   );
