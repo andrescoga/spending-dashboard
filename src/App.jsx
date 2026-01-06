@@ -1986,19 +1986,27 @@ export default function SpendingDashboard() {
     fetchData();
   }, []);
 
+  // Tab configuration with mapping to actual categoryData keys
   const tabs = [
-    { id: "overview", label: "Overview", color: "#4ecdc4" },
-    { id: "food", label: "Food & Dining", color: "#ff6b6b" },
-    { id: "giving", label: "Giving", color: "#f9c74f" },
-    { id: "health", label: "Health", color: "#90be6d" },
-    { id: "home", label: "Home", color: "#aa96da" },
-    { id: "shopping", label: "Shopping", color: "#f38181" },
-    { id: "subscriptions", label: "Subscriptions", color: "#95e1d3" },
-    { id: "transportation", label: "Transportation", color: "#4ecdc4" },
-    { id: "travel", label: "Travel", color: "#aa96da" },
-    { id: "financial", label: "Financial", color: "#e17055" },
-    { id: "fun", label: "Fun", color: "#fcbad3" },
+    { id: "overview", label: "Overview", dataKey: null, color: "#4ecdc4" },
+    { id: "food", label: "Food & Dining", dataKey: "Food & Dining", color: "#ff6b6b" },
+    { id: "giving", label: "Giving", dataKey: "Giving", color: "#f9c74f" },
+    { id: "health", label: "Health", dataKey: "Health & Wellness", color: "#90be6d" },
+    { id: "home", label: "Home", dataKey: "Home", color: "#aa96da" },
+    { id: "shopping", label: "Shopping", dataKey: "Shopping", color: "#f38181" },
+    { id: "subscriptions", label: "Subscriptions", dataKey: "Subscriptions", color: "#95e1d3" },
+    { id: "transportation", label: "Transportation", dataKey: "Transportation", color: "#4ecdc4" },
+    { id: "travel", label: "Travel", dataKey: "Travel", color: "#aa96da" },
+    { id: "financial", label: "Financial", dataKey: "Financial", color: "#e17055" },
+    { id: "fun", label: "Fun", dataKey: "Fun & Entertainment", color: "#fcbad3" },
   ];
+
+  // Debug: Log available category keys on data load
+  useEffect(() => {
+    if (Object.keys(categoryData).length > 0) {
+      console.log('Available categoryData keys:', Object.keys(categoryData));
+    }
+  }, [categoryData]);
 
   return (
     <div style={{
@@ -2201,97 +2209,160 @@ export default function SpendingDashboard() {
 
         {activeTab === "overview" && <OverviewTab excludeFamily={excludeFamily} setExcludeFamily={setExcludeFamily} monthsData={monthsData} givingCategories={categoryData["Giving"] || []} groupMap={groupMap} categoryData={categoryData} theme={theme} />}
 
-        {activeTab === "food" && (() => {
-          const data = categoryData["Food & Dining"] || [];
-          const subcats = ["Restaurants", "Takeout & Delivery", "Bars", "Groceries", "Cafes"];
-          const insights = computeCategoryInsights(data, subcats, [
-            { type: 'percentage', subcat: 'Restaurants', label: 'Restaurants % of Total' },
-            { type: 'peak', subcat: 'Bars', label: 'Bars Peak' }
-          ]);
-          return <CategoryTab title="Food & Dining" data={data} subcats={subcats} palette={FOOD_PALETTE} insights={insights} />;
-        })()}
+        {activeTab === "food" && (
+          <CategoryTab
+            title="Food & Dining"
+            data={categoryData["Food & Dining"] || []}
+            subcats={["Restaurants", "Takeout & Delivery", "Bars", "Groceries", "Cafes"]}
+            palette={FOOD_PALETTE}
+            insights={computeCategoryInsights(
+              categoryData["Food & Dining"] || [],
+              ["Restaurants", "Takeout & Delivery", "Bars", "Groceries", "Cafes"],
+              [
+                { type: 'percentage', subcat: 'Restaurants', label: 'Restaurants % of Total' },
+                { type: 'peak', subcat: 'Bars', label: 'Bars Peak' }
+              ]
+            )}
+          />
+        )}
 
         {activeTab === "giving" && <GivingTab categoryData={categoryData["Giving"] || []} />}
 
-        {activeTab === "health" && (() => {
-          const data = categoryData["Health & Wellness"] || [];
-          const subcats = ["Fitness", "Healthcare & Pharmacy", "Personal Care"];
-          const insights = computeCategoryInsights(data, subcats, [
-            { type: 'average', subcat: 'Fitness', label: 'Fitness Monthly' },
-            { type: 'peak', subcat: 'Healthcare & Pharmacy', label: 'Healthcare Peak' }
-          ]);
-          return <CategoryTab title="Health & Wellness" data={data} subcats={subcats} palette={HEALTH_PALETTE} insights={insights} />;
-        })()}
+        {activeTab === "health" && (
+          <CategoryTab
+            title="Health & Wellness"
+            data={categoryData["Health & Wellness"] || categoryData["Health"] || []}
+            subcats={["Fitness", "Healthcare & Pharmacy", "Personal Care"]}
+            palette={HEALTH_PALETTE}
+            insights={computeCategoryInsights(
+              categoryData["Health & Wellness"] || categoryData["Health"] || [],
+              ["Fitness", "Healthcare & Pharmacy", "Personal Care"],
+              [
+                { type: 'average', subcat: 'Fitness', label: 'Fitness Monthly' },
+                { type: 'peak', subcat: 'Healthcare & Pharmacy', label: 'Healthcare Peak' }
+              ]
+            )}
+          />
+        )}
 
-        {activeTab === "home" && (() => {
-          const data = categoryData["Home"] || [];
-          const subcats = ["Rent & Insurance", "Utilities", "Home Improvement", "Laundry & Dry Cleaning"];
-          const insights = computeCategoryInsights(data, subcats, [
-            { type: 'average', subcat: 'Rent & Insurance', label: 'Rent & Insurance Avg' },
-            { type: 'average', subcat: 'Utilities', label: 'Utilities Avg' }
-          ]);
-          return <CategoryTab title="Home" data={data} subcats={subcats} palette={HOME_PALETTE} insights={insights} />;
-        })()}
+        {activeTab === "home" && (
+          <CategoryTab
+            title="Home"
+            data={categoryData["Home"] || []}
+            subcats={["Rent & Insurance", "Utilities", "Home Improvement", "Laundry & Dry Cleaning"]}
+            palette={HOME_PALETTE}
+            insights={computeCategoryInsights(
+              categoryData["Home"] || [],
+              ["Rent & Insurance", "Utilities", "Home Improvement", "Laundry & Dry Cleaning"],
+              [
+                { type: 'average', subcat: 'Rent & Insurance', label: 'Rent & Insurance Avg' },
+                { type: 'average', subcat: 'Utilities', label: 'Utilities Avg' }
+              ]
+            )}
+          />
+        )}
 
-        {activeTab === "shopping" && (() => {
-          const data = categoryData["Shopping"] || [];
-          const subcats = ["Clothing", "Hobbies", "Various"];
-          const insights = computeCategoryInsights(data, subcats, [
-            { type: 'peak', subcat: 'Hobbies', label: 'Hobbies Peak' },
-            { type: 'peak', subcat: 'Clothing', label: 'Clothing Peak' }
-          ]);
-          return <CategoryTab title="Shopping" data={data} subcats={subcats} palette={SHOPPING_PALETTE} insights={insights} />;
-        })()}
+        {activeTab === "shopping" && (
+          <CategoryTab
+            title="Shopping"
+            data={categoryData["Shopping"] || []}
+            subcats={["Clothing", "Hobbies", "Various"]}
+            palette={SHOPPING_PALETTE}
+            insights={computeCategoryInsights(
+              categoryData["Shopping"] || [],
+              ["Clothing", "Hobbies", "Various"],
+              [
+                { type: 'peak', subcat: 'Hobbies', label: 'Hobbies Peak' },
+                { type: 'peak', subcat: 'Clothing', label: 'Clothing Peak' }
+              ]
+            )}
+          />
+        )}
 
-        {activeTab === "subscriptions" && (() => {
-          const data = categoryData["Subscriptions"] || [];
-          const subcats = ["AI Services", "Courses & Classes", "Newspapers & Magazines", "Streaming Services", "Tech & Memberships"];
-          const insights = computeCategoryInsights(data, subcats, [
-            { type: 'total', subcat: 'AI Services', label: 'AI Services YTD' },
-            { type: 'peak', subcat: 'Courses & Classes', label: 'Courses Peak' }
-          ]);
-          return <CategoryTab title="Subscriptions" data={data} subcats={subcats} palette={SUBSCRIPTIONS_PALETTE} insights={insights} />;
-        })()}
+        {activeTab === "subscriptions" && (
+          <CategoryTab
+            title="Subscriptions"
+            data={categoryData["Subscriptions"] || []}
+            subcats={["AI Services", "Courses & Classes", "Newspapers & Magazines", "Streaming Services", "Tech & Memberships"]}
+            palette={SUBSCRIPTIONS_PALETTE}
+            insights={computeCategoryInsights(
+              categoryData["Subscriptions"] || [],
+              ["AI Services", "Courses & Classes", "Newspapers & Magazines", "Streaming Services", "Tech & Memberships"],
+              [
+                { type: 'total', subcat: 'AI Services', label: 'AI Services YTD' },
+                { type: 'peak', subcat: 'Courses & Classes', label: 'Courses Peak' }
+              ]
+            )}
+          />
+        )}
 
-        {activeTab === "transportation" && (() => {
-          const data = categoryData["Transportation"] || [];
-          const subcats = ["Ride Share", "Public Transportation"];
-          const insights = computeCategoryInsights(data, subcats, [
-            { type: 'peak', subcat: 'Ride Share', label: 'Ride Share Peak' },
-            { type: 'peak', subcat: 'Public Transportation', label: 'Transit Peak' }
-          ]);
-          return <CategoryTab title="Transportation" data={data} subcats={subcats} palette={TRANSPORTATION_PALETTE} insights={insights} />;
-        })()}
+        {activeTab === "transportation" && (
+          <CategoryTab
+            title="Transportation"
+            data={categoryData["Transportation"] || []}
+            subcats={["Ride Share", "Public Transportation"]}
+            palette={TRANSPORTATION_PALETTE}
+            insights={computeCategoryInsights(
+              categoryData["Transportation"] || [],
+              ["Ride Share", "Public Transportation"],
+              [
+                { type: 'peak', subcat: 'Ride Share', label: 'Ride Share Peak' },
+                { type: 'peak', subcat: 'Public Transportation', label: 'Transit Peak' }
+              ]
+            )}
+          />
+        )}
 
-        {activeTab === "travel" && (() => {
-          const data = categoryData["Travel"] || [];
-          const subcats = ["Air Travel", "Hotels"];
-          const insights = computeCategoryInsights(data, subcats, [
-            { type: 'peak', subcat: 'Air Travel', label: 'Air Travel Peak' },
-            { type: 'peak', subcat: 'Hotels', label: 'Hotels Peak' }
-          ]);
-          return <CategoryTab title="Travel" data={data} subcats={subcats} palette={TRAVEL_PALETTE} insights={insights} />;
-        })()}
+        {activeTab === "travel" && (
+          <CategoryTab
+            title="Travel"
+            data={categoryData["Travel"] || []}
+            subcats={["Air Travel", "Hotels"]}
+            palette={TRAVEL_PALETTE}
+            insights={computeCategoryInsights(
+              categoryData["Travel"] || [],
+              ["Air Travel", "Hotels"],
+              [
+                { type: 'peak', subcat: 'Air Travel', label: 'Air Travel Peak' },
+                { type: 'peak', subcat: 'Hotels', label: 'Hotels Peak' }
+              ]
+            )}
+          />
+        )}
 
-        {activeTab === "financial" && (() => {
-          const data = categoryData["Financial"] || [];
-          const subcats = ["Interest Charged", "Membership Fees", "Fees & Admin", "Financial Fees", "Taxes"];
-          const insights = computeCategoryInsights(data, subcats, [
-            { type: 'total', subcat: 'Interest Charged', label: 'Interest YTD' },
-            { type: 'peak', subcat: 'Taxes', label: 'Tax Impact' }
-          ]);
-          return <CategoryTab title="Financial" data={data} subcats={subcats} palette={FINANCIAL_PALETTE} insights={insights} />;
-        })()}
+        {activeTab === "financial" && (
+          <CategoryTab
+            title="Financial"
+            data={categoryData["Financial"] || []}
+            subcats={["Interest Charged", "Membership Fees", "Fees & Admin", "Financial Fees", "Taxes"]}
+            palette={FINANCIAL_PALETTE}
+            insights={computeCategoryInsights(
+              categoryData["Financial"] || [],
+              ["Interest Charged", "Membership Fees", "Fees & Admin", "Financial Fees", "Taxes"],
+              [
+                { type: 'total', subcat: 'Interest Charged', label: 'Interest YTD' },
+                { type: 'peak', subcat: 'Taxes', label: 'Tax Impact' }
+              ]
+            )}
+          />
+        )}
 
-        {activeTab === "fun" && (() => {
-          const data = categoryData["Fun & Entertainment"] || [];
-          const subcats = ["Activities & Attractions", "Books, Movies & Music", "Live Events"];
-          const insights = computeCategoryInsights(data, subcats, [
-            { type: 'average', subcat: 'Activities & Attractions', label: 'Activities Avg' },
-            { type: 'peak', subcat: 'Live Events', label: 'Live Events Peak' }
-          ]);
-          return <CategoryTab title="Fun & Entertainment" data={data} subcats={subcats} palette={FUN_PALETTE} insights={insights} />;
-        })()}
+        {activeTab === "fun" && (
+          <CategoryTab
+            title="Fun & Entertainment"
+            data={categoryData["Fun & Entertainment"] || categoryData["Fun"] || []}
+            subcats={["Activities & Attractions", "Books, Movies & Music", "Live Events"]}
+            palette={FUN_PALETTE}
+            insights={computeCategoryInsights(
+              categoryData["Fun & Entertainment"] || categoryData["Fun"] || [],
+              ["Activities & Attractions", "Books, Movies & Music", "Live Events"],
+              [
+                { type: 'average', subcat: 'Activities & Attractions', label: 'Activities Avg' },
+                { type: 'peak', subcat: 'Live Events', label: 'Live Events Peak' }
+              ]
+            )}
+          />
+        )}
           </>
         )}
       </div>
