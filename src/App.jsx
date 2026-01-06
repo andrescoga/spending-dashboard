@@ -1565,19 +1565,26 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
 
       {/* Grid - shows Group Totals for "All" or individual month categories */}
       {isAllView ? (
-        /* Group Totals view - percentage-first format */
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, width: "100%" }}>
+        /* Group Totals view - single column for full width on mobile */
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10, width: "100%" }}>
           {Object.entries(totalsByGroup).sort((a, b) => b[1] - a[1]).map(([group, total]) => {
             const avgMonthly = monthsData.length > 0 ? total / monthsData.length : 0;
             const percentOfIncome = totalIncome > 0 ? (total / totalIncome) * 100 : 0;
             return (
-              <div key={group} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 2, background: colorMap(group) }} />
-                  <span style={{ color: "#aaa", fontSize: 12 }}>{group}</span>
+              <div key={group} style={{
+                padding: "14px 16px",
+                borderRadius: 10,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.05)",
+                width: "100%",
+                boxSizing: "border-box"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: colorMap(group) }} />
+                  <span style={{ color: "#aaa", fontSize: 13, fontWeight: 600 }}>{group}</span>
                 </div>
-                <div style={{ color: "#fff", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{percentOfIncome.toFixed(1)}%</div>
-                <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
+                <div style={{ color: "#fff", fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{percentOfIncome.toFixed(1)}%</div>
+                <div style={{ color: "#666", fontSize: 12 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
               </div>
             );
           })}
@@ -1587,22 +1594,29 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
             const avgMonthly = monthsData.length > 0 ? grandTotal / monthsData.length : 0;
             const percentOfIncome = totalIncome > 0 ? (grandTotal / totalIncome) * 100 : 0;
             return (
-              <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
-                  <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL</span>
+              <div style={{
+                padding: "14px 16px",
+                borderRadius: 10,
+                background: "rgba(78,205,196,0.08)",
+                border: "2px solid rgba(78,205,196,0.3)",
+                width: "100%",
+                boxSizing: "border-box"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: "#4ecdc4" }} />
+                  <span style={{ color: "#4ecdc4", fontSize: 13, fontWeight: 700 }}>TOTAL SPENDING</span>
                 </div>
-                <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{percentOfIncome.toFixed(1)}%</div>
-                <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
+                <div style={{ color: "#4ecdc4", fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{percentOfIncome.toFixed(1)}%</div>
+                <div style={{ color: "#888", fontSize: 12 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
               </div>
             );
           })()}
         </div>
       ) : (
-        /* Individual month view - category breakdown */
+        /* Individual month view - single column for full width on mobile */
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
+          gridTemplateColumns: "1fr",
           gap: SPACING.md,
           width: "100%"
         }}>
@@ -1610,64 +1624,69 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
             <div key={category} style={{
               display: "flex",
               flexDirection: "column",
-              gap: SPACING.xs,
-              padding: SPACING.lg,
+              gap: SPACING.md,
+              padding: "14px 16px",
               background: `rgba(255,255,255,${OPACITY.surface.level1})`,
               borderRadius: RADIUS.md,
-              border: `1px solid rgba(255,255,255,${OPACITY.border.default})`
+              border: `1px solid rgba(255,255,255,${OPACITY.border.default})`,
+              width: "100%",
+              boxSizing: "border-box"
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: SPACING.md }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{
-                  width: 8,
-                  height: 8,
+                  width: 10,
+                  height: 10,
                   borderRadius: "50%",
                   background: colorMap(category),
                   flexShrink: 0
                 }} />
                 <div style={{
                   color: COLORS.gray[400],
-                  fontSize: FONT_SIZE.sm,
+                  fontSize: 13,
                   fontWeight: 600,
                   textTransform: "uppercase",
                   letterSpacing: "0.5px",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-                  whiteSpace: "nowrap"
+                  whiteSpace: "nowrap",
+                  flex: 1
                 }}>
                   {category}
                 </div>
               </div>
               <div style={{
                 color: COLORS.white,
-                fontSize: FONT_SIZE.lg,
-                fontWeight: 800
+                fontSize: 24,
+                fontWeight: 800,
+                lineHeight: 1
               }}>
                 {formatCurrency(value)}
               </div>
               <div style={{
                 color: COLORS.gray[600],
-                fontSize: FONT_SIZE.xs
+                fontSize: 12
               }}>
                 {income > 0 ? ((value / income) * 100).toFixed(1) : 0}% of income
               </div>
             </div>
           ))}
 
-          {/* Total row - spans both columns */}
+          {/* Total row - full width */}
           <div style={{
-            gridColumn: "1 / -1",
             display: "flex",
             flexDirection: "column",
-            gap: SPACING.xs,
-            padding: SPACING.lg,
-            background: `rgba(255,255,255,${OPACITY.surface.level2})`,
+            gap: SPACING.md,
+            padding: "14px 16px",
+            background: `rgba(78,205,196,${OPACITY.fill.subtle})`,
             borderRadius: RADIUS.md,
-            border: `2px solid rgba(255,255,255,${OPACITY.border.strong})`
+            border: `2px solid rgba(78,205,196,0.3)`,
+            width: "100%",
+            boxSizing: "border-box"
           }}>
             <div style={{
-              color: COLORS.gray[400],
-              fontSize: FONT_SIZE.sm,
-              fontWeight: 600,
+              color: COLORS.accent.teal,
+              fontSize: 13,
+              fontWeight: 700,
               textTransform: "uppercase",
               letterSpacing: "0.5px"
             }}>
@@ -1675,14 +1694,15 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
             </div>
             <div style={{
               color: COLORS.white,
-              fontSize: FONT_SIZE.xl,
-              fontWeight: 800
+              fontSize: 24,
+              fontWeight: 800,
+              lineHeight: 1
             }}>
               {formatCurrency(monthTotal)}
             </div>
             <div style={{
               color: isSurplus ? COLORS.accent.teal : COLORS.accent.red,
-              fontSize: FONT_SIZE.sm,
+              fontSize: 12,
               fontWeight: 700
             }}>
               {isSurplus ? '↑ ' : '↓ '}{formatCurrency(Math.abs(surplus))} {isSurplus ? 'surplus' : 'deficit'}
