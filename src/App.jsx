@@ -561,42 +561,67 @@ const SubcategorySummaryCard = React.memo(({ total, percentage, avgMonthly, colo
 });
 SubcategorySummaryCard.displayName = 'SubcategorySummaryCard';
 
+// Helper function to compute insights for a category
+function computeCategoryInsights(data, subcats, insightConfig) {
+  if (!data || data.length === 0) return [];
+
+  const totals = {};
+  subcats.forEach(c => totals[c] = 0);
+  data.forEach(m => subcats.forEach(c => totals[c] += m[c] || 0));
+  const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0);
+
+  return insightConfig.map(config => {
+    if (config.type === 'percentage') {
+      const percent = INSIGHTS.calculateCategoryPercentage(totals[config.subcat], grandTotal);
+      return { label: config.label, value: `${percent}%` };
+    }
+    if (config.type === 'peak') {
+      const peak = INSIGHTS.findPeakMonth(data, config.subcat);
+      return { label: config.label, value: peak.month ? `${peak.month} (${formatCurrency(peak.value)})` : 'N/A' };
+    }
+    if (config.type === 'average') {
+      const avg = INSIGHTS.calculateAverage(data, config.subcat);
+      return { label: config.label, value: `~${formatCurrency(avg)}/mo` };
+    }
+    if (config.type === 'total') {
+      return { label: config.label, value: formatCurrency(totals[config.subcat]) };
+    }
+    return config; // Return as-is if no type specified (custom insight)
+  });
+}
+
 // ============ GENERIC CATEGORY TAB ============
 function CategoryTab({ title, data, subcats, palette, insights }) {
   const [viewMode, setViewMode] = useState("stacked");
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
 
-  const totals = useMemo(() => {
+  // Optimized: Calculate all metrics in a single pass through the data
+  const { totals, monthlyTotals, avgMonthly, grandTotal, topMonths } = useMemo(() => {
     const t = {};
     subcats.forEach(c => t[c] = 0);
-    data.forEach(m => {
-      subcats.forEach(c => t[c] += m[c] || 0);
+
+    const monthly = data.map(m => {
+      let monthTotal = 0;
+      subcats.forEach(c => {
+        const val = m[c] || 0;
+        t[c] += val;
+        monthTotal += val;
+      });
+      return { month: m.month, total: monthTotal };
     });
-    return t;
+
+    const grand = Object.values(t).reduce((a, b) => a + b, 0);
+    const avg = monthly.length > 0 ? monthly.reduce((s, m) => s + m.total, 0) / monthly.length : 0;
+    const top = [...monthly].sort((a, b) => b.total - a.total).slice(0, 3);
+
+    return {
+      totals: t,
+      monthlyTotals: monthly,
+      avgMonthly: avg,
+      grandTotal: grand,
+      topMonths: top
+    };
   }, [data, subcats]);
-
-  const monthlyTotals = useMemo(
-    () => data.map(m => ({
-      month: m.month,
-      total: subcats.reduce((s, c) => s + (m[c] || 0), 0)
-    })),
-    [data, subcats]
-  );
-
-  const avgMonthly = useMemo(
-    () => monthlyTotals.reduce((s, m) => s + m.total, 0) / monthlyTotals.length,
-    [monthlyTotals]
-  );
-
-  const grandTotal = useMemo(
-    () => Object.values(totals).reduce((a, b) => a + b, 0),
-    [totals]
-  );
-
-  const topMonths = useMemo(
-    () => [...monthlyTotals].sort((a, b) => b.total - a.total).slice(0, 3),
-    [monthlyTotals]
-  );
 
   const handleViewModeChange = useCallback((mode) => setViewMode(mode), []);
 
@@ -1880,10 +1905,52 @@ export default function SpendingDashboard() {
   // Extract date range from data for dynamic title
   const dateRange = useMemo(() => DATE_UTILS.getDateRange(monthsData), [monthsData]);
 
-  // Fetch data from Google Sheets API
+  // Fetch data from Google Sheets API with caching
   useEffect(() => {
+    const CACHE_KEY = 'spendingDashboardData';
+    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
     const fetchData = async () => {
       try {
+        // Check cache first
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        const cacheTimestamp = localStorage.getItem(`${CACHE_KEY}_timestamp`);
+        const now = Date.now();
+
+        if (cachedData && cacheTimestamp) {
+          const age = now - parseInt(cacheTimestamp, 10);
+
+          // If cache is fresh (< 5 minutes), use it immediately
+          if (age < CACHE_DURATION) {
+            const data = JSON.parse(cachedData);
+            setMonthsData(data.months);
+            setGroupMap(data.groupMap || {});
+
+            const transformedCategories = {};
+            Object.entries(data.categoryData).forEach(([group, categoryData]) => {
+              transformedCategories[group] = transformCategoryData(categoryData);
+            });
+            setCategoryData(transformedCategories);
+            setIsLoading(false);
+            setError(null);
+            return; // Use cache, don't fetch
+          }
+
+          // If cache is stale, show it while fetching fresh data in background
+          if (age < CACHE_DURATION * 2) {
+            const data = JSON.parse(cachedData);
+            setMonthsData(data.months);
+            setGroupMap(data.groupMap || {});
+
+            const transformedCategories = {};
+            Object.entries(data.categoryData).forEach(([group, categoryData]) => {
+              transformedCategories[group] = transformCategoryData(categoryData);
+            });
+            setCategoryData(transformedCategories);
+            setIsLoading(false); // Show cached data immediately
+          }
+        }
+
         setIsLoading(true);
         const response = await fetch(`${API_BASE_URL}${API_ENDPOINT}`);
 
@@ -1893,13 +1960,14 @@ export default function SpendingDashboard() {
 
         const data = await response.json();
 
-        // Update months data
-        setMonthsData(data.months);
+        // Cache the response
+        localStorage.setItem(CACHE_KEY, JSON.stringify(data));
+        localStorage.setItem(`${CACHE_KEY}_timestamp`, now.toString());
 
-        // Store group map
+        // Update state
+        setMonthsData(data.months);
         setGroupMap(data.groupMap || {});
 
-        // Transform and update category data
         const transformedCategories = {};
         Object.entries(data.categoryData).forEach(([group, categoryData]) => {
           transformedCategories[group] = transformCategoryData(categoryData);
@@ -2133,124 +2201,97 @@ export default function SpendingDashboard() {
 
         {activeTab === "overview" && <OverviewTab excludeFamily={excludeFamily} setExcludeFamily={setExcludeFamily} monthsData={monthsData} givingCategories={categoryData["Giving"] || []} groupMap={groupMap} categoryData={categoryData} theme={theme} />}
 
-        {activeTab === "food" && (
-          <CategoryTab
-            title="Food & Dining"
-            data={categoryData["Food & Dining"] || []}
-            subcats={["Restaurants", "Takeout & Delivery", "Bars", "Groceries", "Cafes"]}
-            palette={FOOD_PALETTE}
-            insights={[
-              { label: "Restaurants % of Total", value: "52.6%" },
-              { label: "Bars Peak", value: "Jul 2025 ($500)" }
-            ]}
-          />
-        )}
+        {activeTab === "food" && (() => {
+          const data = categoryData["Food & Dining"] || [];
+          const subcats = ["Restaurants", "Takeout & Delivery", "Bars", "Groceries", "Cafes"];
+          const insights = computeCategoryInsights(data, subcats, [
+            { type: 'percentage', subcat: 'Restaurants', label: 'Restaurants % of Total' },
+            { type: 'peak', subcat: 'Bars', label: 'Bars Peak' }
+          ]);
+          return <CategoryTab title="Food & Dining" data={data} subcats={subcats} palette={FOOD_PALETTE} insights={insights} />;
+        })()}
 
         {activeTab === "giving" && <GivingTab categoryData={categoryData["Giving"] || []} />}
 
-        {activeTab === "health" && (
-          <CategoryTab
-            title="Health & Wellness"
-            data={categoryData["Health & Wellness"] || []}
-            subcats={["Fitness", "Healthcare & Pharmacy", "Personal Care"]}
-            palette={HEALTH_PALETTE}
-            insights={[
-              { label: "Fitness Monthly", value: "~$244/mo" },
-              { label: "Healthcare Peak", value: "Aug 2025 ($303)" }
-            ]}
-          />
-        )}
+        {activeTab === "health" && (() => {
+          const data = categoryData["Health & Wellness"] || [];
+          const subcats = ["Fitness", "Healthcare & Pharmacy", "Personal Care"];
+          const insights = computeCategoryInsights(data, subcats, [
+            { type: 'average', subcat: 'Fitness', label: 'Fitness Monthly' },
+            { type: 'peak', subcat: 'Healthcare & Pharmacy', label: 'Healthcare Peak' }
+          ]);
+          return <CategoryTab title="Health & Wellness" data={data} subcats={subcats} palette={HEALTH_PALETTE} insights={insights} />;
+        })()}
 
-        {activeTab === "home" && (
-          <CategoryTab
-            title="Home"
-            data={categoryData["Home"] || []}
-            subcats={["Rent & Insurance", "Utilities", "Home Improvement", "Laundry & Dry Cleaning"]}
-            palette={HOME_PALETTE}
-            insights={[
-              { label: "Actual Rent", value: "~$859/mo (after split)" },
-              { label: "Utilities Avg", value: "~$157/mo" }
-            ]}
-          />
-        )}
+        {activeTab === "home" && (() => {
+          const data = categoryData["Home"] || [];
+          const subcats = ["Rent & Insurance", "Utilities", "Home Improvement", "Laundry & Dry Cleaning"];
+          const insights = computeCategoryInsights(data, subcats, [
+            { type: 'average', subcat: 'Rent & Insurance', label: 'Rent & Insurance Avg' },
+            { type: 'average', subcat: 'Utilities', label: 'Utilities Avg' }
+          ]);
+          return <CategoryTab title="Home" data={data} subcats={subcats} palette={HOME_PALETTE} insights={insights} />;
+        })()}
 
-        {activeTab === "shopping" && (
-          <CategoryTab
-            title="Shopping"
-            data={categoryData["Shopping"] || []}
-            subcats={["Clothing", "Hobbies", "Various"]}
-            palette={SHOPPING_PALETTE}
-            insights={[
-              { label: "Hobbies Peak", value: "Dec 2025 ($610)" },
-              { label: "Clothing Peak", value: "Sep 2025 ($236)" }
-            ]}
-          />
-        )}
+        {activeTab === "shopping" && (() => {
+          const data = categoryData["Shopping"] || [];
+          const subcats = ["Clothing", "Hobbies", "Various"];
+          const insights = computeCategoryInsights(data, subcats, [
+            { type: 'peak', subcat: 'Hobbies', label: 'Hobbies Peak' },
+            { type: 'peak', subcat: 'Clothing', label: 'Clothing Peak' }
+          ]);
+          return <CategoryTab title="Shopping" data={data} subcats={subcats} palette={SHOPPING_PALETTE} insights={insights} />;
+        })()}
 
-        {activeTab === "subscriptions" && (
-          <CategoryTab
-            title="Subscriptions"
-            data={categoryData["Subscriptions"] || []}
-            subcats={["AI Services", "Courses & Classes", "Newspapers & Magazines", "Streaming Services", "Tech & Memberships"]}
-            palette={SUBSCRIPTIONS_PALETTE}
-            insights={[
-              { label: "AI Services YTD", value: "$1,026" },
-              { label: "Courses Peak", value: "Feb 2025 ($280)" }
-            ]}
-          />
-        )}
+        {activeTab === "subscriptions" && (() => {
+          const data = categoryData["Subscriptions"] || [];
+          const subcats = ["AI Services", "Courses & Classes", "Newspapers & Magazines", "Streaming Services", "Tech & Memberships"];
+          const insights = computeCategoryInsights(data, subcats, [
+            { type: 'total', subcat: 'AI Services', label: 'AI Services YTD' },
+            { type: 'peak', subcat: 'Courses & Classes', label: 'Courses Peak' }
+          ]);
+          return <CategoryTab title="Subscriptions" data={data} subcats={subcats} palette={SUBSCRIPTIONS_PALETTE} insights={insights} />;
+        })()}
 
-        {activeTab === "transportation" && (
-          <CategoryTab
-            title="Transportation"
-            data={categoryData["Transportation"] || []}
-            subcats={["Ride Share", "Public Transportation"]}
-            palette={TRANSPORTATION_PALETTE}
-            insights={[
-              { label: "Ride Share Peak", value: "Jul 2025 ($537)" },
-              { label: "Transit Peak", value: "Oct 2025 ($162)" }
-            ]}
-          />
-        )}
+        {activeTab === "transportation" && (() => {
+          const data = categoryData["Transportation"] || [];
+          const subcats = ["Ride Share", "Public Transportation"];
+          const insights = computeCategoryInsights(data, subcats, [
+            { type: 'peak', subcat: 'Ride Share', label: 'Ride Share Peak' },
+            { type: 'peak', subcat: 'Public Transportation', label: 'Transit Peak' }
+          ]);
+          return <CategoryTab title="Transportation" data={data} subcats={subcats} palette={TRANSPORTATION_PALETTE} insights={insights} />;
+        })()}
 
-        {activeTab === "travel" && (
-          <CategoryTab
-            title="Travel"
-            data={categoryData["Travel"] || []}
-            subcats={["Air Travel", "Hotels"]}
-            palette={TRAVEL_PALETTE}
-            insights={[
-              { label: "Jan Trip", value: "$1,256" },
-              { label: "Oct Europe Trip", value: "$1,497" }
-            ]}
-          />
-        )}
+        {activeTab === "travel" && (() => {
+          const data = categoryData["Travel"] || [];
+          const subcats = ["Air Travel", "Hotels"];
+          const insights = computeCategoryInsights(data, subcats, [
+            { type: 'peak', subcat: 'Air Travel', label: 'Air Travel Peak' },
+            { type: 'peak', subcat: 'Hotels', label: 'Hotels Peak' }
+          ]);
+          return <CategoryTab title="Travel" data={data} subcats={subcats} palette={TRAVEL_PALETTE} insights={insights} />;
+        })()}
 
-        {activeTab === "financial" && (
-          <CategoryTab
-            title="Financial"
-            data={categoryData["Financial"] || []}
-            subcats={["Interest Charged", "Membership Fees", "Fees & Admin", "Financial Fees", "Taxes"]}
-            palette={FINANCIAL_PALETTE}
-            insights={[
-              { label: "Interest YTD", value: "$1,334" },
-              { label: "Tax Refund (Mar)", value: "$1,198 credit" }
-            ]}
-          />
-        )}
+        {activeTab === "financial" && (() => {
+          const data = categoryData["Financial"] || [];
+          const subcats = ["Interest Charged", "Membership Fees", "Fees & Admin", "Financial Fees", "Taxes"];
+          const insights = computeCategoryInsights(data, subcats, [
+            { type: 'total', subcat: 'Interest Charged', label: 'Interest YTD' },
+            { type: 'peak', subcat: 'Taxes', label: 'Tax Impact' }
+          ]);
+          return <CategoryTab title="Financial" data={data} subcats={subcats} palette={FINANCIAL_PALETTE} insights={insights} />;
+        })()}
 
-        {activeTab === "fun" && (
-          <CategoryTab
-            title="Fun & Entertainment"
-            data={categoryData["Fun & Entertainment"] || []}
-            subcats={["Activities & Attractions", "Books, Movies & Music", "Live Events"]}
-            palette={FUN_PALETTE}
-            insights={[
-              { label: "Summer Peak (May-Aug)", value: "~$656/mo avg" },
-              { label: "Live Events Peak", value: "Nov 2025 ($449)" }
-            ]}
-          />
-        )}
+        {activeTab === "fun" && (() => {
+          const data = categoryData["Fun & Entertainment"] || [];
+          const subcats = ["Activities & Attractions", "Books, Movies & Music", "Live Events"];
+          const insights = computeCategoryInsights(data, subcats, [
+            { type: 'average', subcat: 'Activities & Attractions', label: 'Activities Avg' },
+            { type: 'peak', subcat: 'Live Events', label: 'Live Events Peak' }
+          ]);
+          return <CategoryTab title="Fun & Entertainment" data={data} subcats={subcats} palette={FUN_PALETTE} insights={insights} />;
+        })()}
           </>
         )}
       </div>
