@@ -564,6 +564,7 @@ SubcategorySummaryCard.displayName = 'SubcategorySummaryCard';
 // ============ GENERIC CATEGORY TAB ============
 function CategoryTab({ title, data, subcats, palette, insights }) {
   const [viewMode, setViewMode] = useState("stacked");
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
 
   const totals = useMemo(() => {
     const t = {};
@@ -613,7 +614,11 @@ function CategoryTab({ title, data, subcats, palette, insights }) {
       }}>
         <ControlPill value={viewMode} setValue={handleViewModeChange} options={["stacked", "grouped"]} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACING['4xl'] }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gap: SPACING['4xl']
+      }}>
         <Panel title={`${title} by Month`} subtitle="NET spending by subcategory">
           <CategoryBarChart data={data} subcats={subcats} palette={palette} viewMode={viewMode} />
         </Panel>
@@ -624,7 +629,9 @@ function CategoryTab({ title, data, subcats, palette, insights }) {
       <div style={{
         marginTop: SPACING['4xl'],
         display: "grid",
-        gridTemplateColumns: `repeat(${Math.min(subcats.length, 5)}, 1fr)`,
+        gridTemplateColumns: isMobile
+          ? "1fr"
+          : `repeat(auto-fit, minmax(200px, 1fr))`,
         gap: SPACING['2xl']
       }}>
         {subcats.map(cat => {
@@ -645,7 +652,11 @@ function CategoryTab({ title, data, subcats, palette, insights }) {
       </div>
       <div style={{ marginTop: SPACING['4xl'] }}>
         <Panel title={`${title} Insights`} subtitle="">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: SPACING['4xl'] }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+            gap: SPACING['4xl']
+          }}>
             <InsightSection title="Highest Spend Months" color={COLORS.accent.red}>
               {topMonths.map((m, i) => (
                 <InsightRow
@@ -768,20 +779,33 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
   }, [selectedMonth, monthsData, categoryData, groupMap]);
 
   const activeSeries = [...topGroups]; // Show all groups
+
+  // Memoized color map for all groups to avoid recalculating hashes
+  const colorMap = useMemo(() => {
+    const map = {};
+    const allKeys = [...topGroups, ...Object.keys(groupMap), "Other"];
+    allKeys.forEach(key => {
+      // Use fixed colors for spending groups
+      if (GROUP_COLORS[key]) {
+        map[key] = GROUP_COLORS[key];
+      }
+      // Fallback for "Other" or unknown groups
+      else if (key === "Other") {
+        map[key] = "#888888";
+      }
+      // Final fallback to hash-based color
+      else {
+        let h = 0;
+        for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+        map[key] = PALETTE[h % PALETTE.length];
+      }
+    });
+    return map;
+  }, [topGroups, groupMap]);
+
   const colorFor = useCallback((key) => {
-    // Use fixed colors for spending groups
-    if (GROUP_COLORS[key]) {
-      return GROUP_COLORS[key];
-    }
-    // Fallback for "Other" or unknown groups
-    if (key === "Other") {
-      return "#888888";
-    }
-    // Final fallback to hash-based color
-    let h = 0;
-    for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
-    return PALETTE[h % PALETTE.length];
-  }, []);
+    return colorMap[key] || "#888888";
+  }, [colorMap]);
 
   // Prepare data for breakdown donut chart
   const donutData = useMemo(() => {
@@ -895,7 +919,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
               {/* Show Income toggle */}
               {chartType === "bars" && (
                 <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "6px 10px", borderRadius: 8, background: showIncome ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  <input type="checkbox" checked={showIncome} onChange={(e) => setShowIncome(e.target.checked)} style={{ accentColor: "#4ecdc4", cursor: "pointer" }} />
+                  <input type="checkbox" checked={showIncome} onChange={(e) => setShowIncome(e.target.checked)} style={{ accentColor: "#4ecdc4", cursor: "pointer", transform: "scale(1.2)", marginRight: "4px" }} />
                   <span style={{ color: showIncome ? "#4ecdc4" : "#888", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>SHOW INCOME</span>
                 </label>
               )}
@@ -981,7 +1005,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
             )}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "10px 16px" : "6px 12px", borderRadius: 8, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
               <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4" }} />
+                <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4", transform: isMobile ? "scale(1.3)" : "scale(1)", marginRight: isMobile ? "4px" : "0" }} />
                 <span style={{ color: excludeFamily ? "#4ecdc4" : "#888", fontSize: isMobile ? 12 : 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Exclude Family Care</span>
               </label>
             </div>
@@ -1258,6 +1282,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
 function GivingTab({ categoryData }) {
   const [viewMode, setViewMode] = useState("stacked");
   const [excludeFamily, setExcludeFamily] = useState(false);
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
   const subcats = excludeFamily ? ["Charity", "Gifts"] : ["Charity", "Family Care", "Gifts"];
 
   const totals = useMemo(() => {
@@ -1295,13 +1320,17 @@ function GivingTab({ categoryData }) {
         <ControlPill value={viewMode} setValue={setViewMode} options={["stacked", "grouped"]} />
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", borderRadius: 12, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-            <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4" }} />
+            <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4", transform: isMobile ? "scale(1.3)" : "scale(1)", marginRight: isMobile ? "4px" : "0" }} />
             <span style={{ color: excludeFamily ? "#4ecdc4" : "#888", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>Exclude Family Care</span>
           </label>
         </div>
       </div>
       {excludeFamily && (<div style={{ background: "rgba(78,205,196,0.08)", border: "1px solid rgba(78,205,196,0.15)", borderRadius: 12, padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "center", gap: 12 }}><span style={{ color: "#4ecdc4" }}>ℹ</span><span style={{ color: "#94a3b8", fontSize: 13 }}>Family Care ({formatCurrency(totalFamilyCare)}) excluded from charts</span></div>)}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gap: 18
+      }}>
         <Panel title="Giving by Month" subtitle="NET spending by subcategory">
           <div style={{ width: "100%", height: 380 }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -1331,7 +1360,12 @@ function GivingTab({ categoryData }) {
           </div>
         </Panel>
       </div>
-      <div style={{ marginTop: 18, display: "grid", gridTemplateColumns: `repeat(${subcats.length}, 1fr)`, gap: 14 }}>
+      <div style={{
+        marginTop: 18,
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : `repeat(${subcats.length}, 1fr)`,
+        gap: 14
+      }}>
         {subcats.map(cat => (
           <Panel key={cat} title={cat} subtitle="">
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
@@ -1345,7 +1379,11 @@ function GivingTab({ categoryData }) {
       </div>
       <div style={{ marginTop: 18 }}>
         <Panel title="Giving Insights" subtitle="">
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+            gap: 18
+          }}>
             <div>
               <div style={{ color: "#ff6b6b", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Top Family Care Payments</div>
               {familyCarePeaks.map((peak, idx) => (
@@ -2005,8 +2043,8 @@ export default function SpendingDashboard() {
               background: currentTheme.panelBg,
               border: `1px solid ${currentTheme.panelBorder}`,
               borderRadius: "50%",
-              width: "40px",
-              height: "40px",
+              width: isMobile ? "44px" : "40px",
+              height: isMobile ? "44px" : "40px",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
