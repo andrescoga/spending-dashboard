@@ -326,6 +326,39 @@ const DATE_UTILS = {
   }
 };
 
+// Helper to get last 12 months excluding the most recent month
+function getLast12MonthsExcludingCurrent(monthsData) {
+  if (!monthsData || monthsData.length < 2) return monthsData;
+
+  // Exclude the last month, then take the previous 12 months
+  const withoutCurrent = monthsData.slice(0, -1);  // Remove last month
+  const last12 = withoutCurrent.slice(-12);         // Take last 12 of remaining
+
+  return last12;
+}
+
+// Helper to get last 6 months excluding the most recent month
+function getLast6MonthsExcludingCurrent(monthsData) {
+  if (!monthsData || monthsData.length < 2) return monthsData;
+
+  // Exclude the last month, then take the previous 6 months
+  const withoutCurrent = monthsData.slice(0, -1);  // Remove last month
+  const last6 = withoutCurrent.slice(-6);           // Take last 6 of remaining
+
+  return last6;
+}
+
+// Helper to get last 3 months excluding the most recent month
+function getLast3MonthsExcludingCurrent(monthsData) {
+  if (!monthsData || monthsData.length < 2) return monthsData;
+
+  // Exclude the last month, then take the previous 3 months
+  const withoutCurrent = monthsData.slice(0, -1);  // Remove last month
+  const last3 = withoutCurrent.slice(-3);           // Take last 3 of remaining
+
+  return last3;
+}
+
 // Accessibility labels
 const A11Y = {
   chartLabels: {
@@ -385,6 +418,15 @@ const CategoryBarChart = React.memo(({ data, subcats, palette, viewMode, selecte
   const currentMonth = selectedMonth !== undefined ? selectedMonth : localSelectedMonth;
   const handleMonthSelect = onMonthSelect || setLocalSelectedMonth;
 
+  // Guard: Don't render if data is empty or invalid
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ width: "100%", height: CHART.height.default, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.gray[600] }}>
+        No data available
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: "100%", height: CHART.height.default }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -422,6 +464,15 @@ const CategoryBarChart = React.memo(({ data, subcats, palette, viewMode, selecte
 CategoryBarChart.displayName = 'CategoryBarChart';
 
 const CategoryLineChart = React.memo(({ data, subcats, palette }) => {
+  // Guard: Don't render if data is empty or invalid
+  if (!data || data.length === 0) {
+    return (
+      <div style={{ width: "100%", height: CHART.height.default, display: "flex", alignItems: "center", justifyContent: "center", color: COLORS.gray[600] }}>
+        No data available
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: "100%", height: CHART.height.default }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -592,7 +643,6 @@ function computeCategoryInsights(data, subcats, insightConfig) {
 
 // ============ GENERIC CATEGORY TAB ============
 function CategoryTab({ title, data, subcats, palette, insights }) {
-  const [viewMode, setViewMode] = useState("stacked");
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
 
   // Optimized: Calculate all metrics in a single pass through the data
@@ -623,32 +673,16 @@ function CategoryTab({ title, data, subcats, palette, insights }) {
     };
   }, [data, subcats]);
 
-  const handleViewModeChange = useCallback((mode) => setViewMode(mode), []);
-
   return (
     <>
       <div style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: SPACING['2xl'],
-        marginBottom: SPACING['5xl'],
-        padding: `${SPACING['3xl']}px ${SPACING['4xl']}px`,
-        borderRadius: RADIUS['3xl'],
-        background: `rgba(255,255,255,${OPACITY.surface.level0})`,
-        border: `1px solid rgba(255,255,255,${OPACITY.surface.level3})`
-      }}>
-        <ControlPill value={viewMode} setValue={handleViewModeChange} options={["stacked", "grouped"]} />
-      </div>
-      <div style={{
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
-        gap: SPACING['4xl']
+        gridTemplateColumns: "1fr",
+        gap: SPACING['4xl'],
+        marginBottom: SPACING['5xl']
       }}>
         <Panel title={`${title} by Month`} subtitle="NET spending by subcategory">
-          <CategoryBarChart data={data} subcats={subcats} palette={palette} viewMode={viewMode} />
-        </Panel>
-        <Panel title="Subcategory Trends" subtitle="Month-over-month comparison">
-          <CategoryLineChart data={data} subcats={subcats} palette={palette} />
+          <CategoryBarChart data={data} subcats={subcats} palette={palette} viewMode="stacked" />
         </Panel>
       </div>
       <div style={{
@@ -779,38 +813,41 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
   const singleMonthGroupData = useMemo(() => {
     if (selectedMonth === "All" || !selectedMonth || !categoryData || !groupMap) return null;
 
-    // Find the selected month's data
-    const monthIndex = monthsData.findIndex(m => m.month === selectedMonth);
-    if (monthIndex === -1) return null;
-
     // Build data structure: one bar per group, categories stacked within
     const groupBars = [];
     Object.entries(groupMap).forEach(([group, categories]) => {
       const bar = { group };
-      categories.forEach(category => {
-        const categoryMonthData = categoryData[group]?.[monthIndex];
-        const value = categoryMonthData?.[category] || 0;
-        if (value > 0) {
-          bar[category] = value;
-        }
-      });
+
+      // Find the month data for this group by matching month name
+      const groupMonthsData = categoryData[group] || [];
+      const monthData = groupMonthsData.find(m => m.month === selectedMonth);
+
+      if (monthData) {
+        categories.forEach(category => {
+          const value = monthData[category] || 0;
+          if (value > 0) {
+            bar[category] = value;
+          }
+        });
+      }
+
       // Only include groups with at least one category with value > 0
       if (Object.keys(bar).length > 1) {
         groupBars.push(bar);
       }
     });
 
-    return groupBars;
-  }, [selectedMonth, monthsData, categoryData, groupMap]);
+    return groupBars.length > 0 ? groupBars : null;
+  }, [selectedMonth, categoryData, groupMap]);
 
   const activeSeries = [...topGroups]; // Show all groups
 
-  // Memoized color map for all groups AND categories to avoid recalculating hashes
+  // Memoized color map for all groups AND categories with proper palette support
   const colorMap = useMemo(() => {
     const map = {};
     const allKeys = [...topGroups, ...Object.keys(groupMap), "Other"];
 
-    // Map group names to colors
+    // Map group names to GROUP_COLORS
     allKeys.forEach(key => {
       if (GROUP_COLORS[key]) {
         map[key] = GROUP_COLORS[key];
@@ -823,12 +860,34 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
       }
     });
 
-    // Map individual categories to their parent group's color
+    // Map categories to their individual palette colors
+    const categoryPalettes = {
+      "Food & Dining": FOOD_PALETTE,
+      "Fun & Entertainment": FUN_PALETTE,
+      "Fun": FUN_PALETTE,
+      "Giving": GIVING_PALETTE,
+      "Health & Wellness": HEALTH_PALETTE,
+      "Health": HEALTH_PALETTE,
+      "Home": HOME_PALETTE,
+      "Shopping": SHOPPING_PALETTE,
+      "Financial": FINANCIAL_PALETTE,
+      "Transportation": TRANSPORTATION_PALETTE,
+      "Travel": TRAVEL_PALETTE,
+      "Subscriptions": SUBSCRIPTIONS_PALETTE
+    };
+
     Object.entries(groupMap).forEach(([group, categories]) => {
-      const groupColor = map[group];
-      if (groupColor && categories) {
+      const palette = categoryPalettes[group];
+      if (palette && categories) {
         categories.forEach(category => {
-          map[category] = groupColor; // Category inherits group color
+          // Use category-specific color from palette, fallback to group color
+          map[category] = palette[category] || map[group] || "#888888";
+        });
+      } else if (categories) {
+        // Fallback: use group color if no palette available
+        const groupColor = map[group];
+        categories.forEach(category => {
+          map[category] = groupColor || "#888888";
         });
       }
     });
@@ -1313,7 +1372,6 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
 
 // ============ GIVING TAB (with Family Care toggle) ============
 function GivingTab({ categoryData }) {
-  const [viewMode, setViewMode] = useState("stacked");
   const [excludeFamily, setExcludeFamily] = useState(false);
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
   const subcats = excludeFamily ? ["Charity", "Gifts"] : ["Charity", "Family Care", "Gifts"];
@@ -1350,7 +1408,6 @@ function GivingTab({ categoryData }) {
   return (
     <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: 22, padding: "16px 18px", borderRadius: 16, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-        <ControlPill value={viewMode} setValue={setViewMode} options={["stacked", "grouped"]} />
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", borderRadius: 12, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
             <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4", transform: isMobile ? "scale(1.3)" : "scale(1)", marginRight: isMobile ? "4px" : "0" }} />
@@ -1361,7 +1418,7 @@ function GivingTab({ categoryData }) {
       {excludeFamily && (<div style={{ background: "rgba(78,205,196,0.08)", border: "1px solid rgba(78,205,196,0.15)", borderRadius: 12, padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "center", gap: 12 }}><span style={{ color: "#4ecdc4" }}>ℹ</span><span style={{ color: "#94a3b8", fontSize: 13 }}>Family Care ({formatCurrency(totalFamilyCare)}) excluded from charts</span></div>)}
       <div style={{
         display: "grid",
-        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+        gridTemplateColumns: "1fr",
         gap: 18
       }}>
         <Panel title="Giving by Month" subtitle="NET spending by subcategory">
@@ -1373,22 +1430,8 @@ function GivingTab({ categoryData }) {
                 <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
                 <Tooltip content={<TooltipBox scale="absolute" />} />
                 <Legend wrapperStyle={{ color: "#999", fontSize: 11 }} />
-                {subcats.map((key) => (<Bar key={key} dataKey={key} stackId={viewMode === "stacked" ? "a" : undefined} fill={GIVING_PALETTE[key]} radius={viewMode === "stacked" ? [2, 2, 0, 0] : 2} maxBarSize={32} />))}
+                {subcats.map((key) => (<Bar key={key} dataKey={key} stackId="a" fill={GIVING_PALETTE[key]} radius={[2, 2, 0, 0]} maxBarSize={32} />))}
               </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </Panel>
-        <Panel title="Subcategory Trends" subtitle="Month-over-month comparison">
-          <div style={{ width: "100%", height: 380 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
-                <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
-                <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
-                <Tooltip content={<TooltipBox scale="absolute" />} />
-                <Legend wrapperStyle={{ color: "#999", fontSize: 11 }} />
-                {subcats.map((key) => (<Line key={key} type="monotone" dataKey={key} stroke={GIVING_PALETTE[key]} strokeWidth={2} dot={{ r: 3 }} />))}
-              </LineChart>
             </ResponsiveContainer>
           </div>
         </Panel>
@@ -1494,7 +1537,7 @@ TooltipBox.displayName = 'TooltipBox';
 // Interactive data grid for mobile - shows group summaries or month breakdown
 const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, monthsData, totalsByGroup, totalIncome }) => {
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
-  if (!isMobile || !data || data.length === 0) return null;
+  if (!isMobile || !data || data.length === 0 || !totalsByGroup) return null;
 
   // Default to "All" if none selected
   const currentMonth = selectedMonth || "All";
@@ -2022,6 +2065,9 @@ export default function SpendingDashboard() {
   // Tab configuration with mapping to actual categoryData keys
   const tabs = [
     { id: "overview", label: "Overview", dataKey: null, color: "#4ecdc4" },
+    { id: "last12", label: "Last 12 Months", dataKey: null, color: "#90be6d" },
+    { id: "last6", label: "Last 6 Months", dataKey: null, color: "#4ecdc4" },
+    { id: "last3", label: "Last 3 Months", dataKey: null, color: "#aa96da" },
     { id: "food", label: "Food & Dining", dataKey: "Food & Dining", color: "#ff6b6b" },
     { id: "giving", label: "Giving", dataKey: "Giving", color: "#f9c74f" },
     { id: "health", label: "Health", dataKey: "Health & Wellness", color: "#90be6d" },
@@ -2241,6 +2287,57 @@ export default function SpendingDashboard() {
         )}
 
         {activeTab === "overview" && <OverviewTab excludeFamily={excludeFamily} setExcludeFamily={setExcludeFamily} monthsData={monthsData} givingCategories={categoryData["Giving"] || []} groupMap={groupMap} categoryData={categoryData} theme={theme} />}
+
+        {activeTab === "last12" && (
+          <OverviewTab
+            excludeFamily={excludeFamily}
+            setExcludeFamily={setExcludeFamily}
+            monthsData={getLast12MonthsExcludingCurrent(monthsData)}
+            givingCategories={(categoryData["Giving"] || []).slice(0, -1).slice(-12)}
+            groupMap={groupMap}
+            categoryData={Object.fromEntries(
+              Object.entries(categoryData).map(([group, data]) => [
+                group,
+                (data || []).slice(0, -1).slice(-12)
+              ])
+            )}
+            theme={theme}
+          />
+        )}
+
+        {activeTab === "last6" && (
+          <OverviewTab
+            excludeFamily={excludeFamily}
+            setExcludeFamily={setExcludeFamily}
+            monthsData={getLast6MonthsExcludingCurrent(monthsData)}
+            givingCategories={(categoryData["Giving"] || []).slice(0, -1).slice(-6)}
+            groupMap={groupMap}
+            categoryData={Object.fromEntries(
+              Object.entries(categoryData).map(([group, data]) => [
+                group,
+                (data || []).slice(0, -1).slice(-6)
+              ])
+            )}
+            theme={theme}
+          />
+        )}
+
+        {activeTab === "last3" && (
+          <OverviewTab
+            excludeFamily={excludeFamily}
+            setExcludeFamily={setExcludeFamily}
+            monthsData={getLast3MonthsExcludingCurrent(monthsData)}
+            givingCategories={(categoryData["Giving"] || []).slice(0, -1).slice(-3)}
+            groupMap={groupMap}
+            categoryData={Object.fromEntries(
+              Object.entries(categoryData).map(([group, data]) => [
+                group,
+                (data || []).slice(0, -1).slice(-3)
+              ])
+            )}
+            theme={theme}
+          />
+        )}
 
         {activeTab === "food" && (
           <CategoryTab
