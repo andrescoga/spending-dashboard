@@ -805,26 +805,34 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
 
   const activeSeries = [...topGroups]; // Show all groups
 
-  // Memoized color map for all groups to avoid recalculating hashes
+  // Memoized color map for all groups AND categories to avoid recalculating hashes
   const colorMap = useMemo(() => {
     const map = {};
     const allKeys = [...topGroups, ...Object.keys(groupMap), "Other"];
+
+    // Map group names to colors
     allKeys.forEach(key => {
-      // Use fixed colors for spending groups
       if (GROUP_COLORS[key]) {
         map[key] = GROUP_COLORS[key];
-      }
-      // Fallback for "Other" or unknown groups
-      else if (key === "Other") {
+      } else if (key === "Other") {
         map[key] = "#888888";
-      }
-      // Final fallback to hash-based color
-      else {
+      } else {
         let h = 0;
         for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
         map[key] = PALETTE[h % PALETTE.length];
       }
     });
+
+    // Map individual categories to their parent group's color
+    Object.entries(groupMap).forEach(([group, categories]) => {
+      const groupColor = map[group];
+      if (groupColor && categories) {
+        categories.forEach(category => {
+          map[category] = groupColor; // Category inherits group color
+        });
+      }
+    });
+
     return map;
   }, [topGroups, groupMap]);
 
@@ -1512,13 +1520,14 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
   const isSurplus = surplus >= 0;
 
   return (
-    <div style={{ marginTop: SPACING['3xl'] }}>
+    <div style={{ marginTop: SPACING['3xl'], width: "100%", boxSizing: "border-box" }}>
       {/* Month selector */}
       <div style={{
         marginBottom: SPACING['2xl'],
         display: "flex",
         alignItems: "center",
-        gap: SPACING.md
+        gap: SPACING.md,
+        width: "100%"
       }}>
         <div style={{
           color: COLORS.gray[600],
@@ -1557,7 +1566,7 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
       {/* Grid - shows Group Totals for "All" or individual month categories */}
       {isAllView ? (
         /* Group Totals view - percentage-first format */
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, width: "100%" }}>
           {Object.entries(totalsByGroup).sort((a, b) => b[1] - a[1]).map(([group, total]) => {
             const avgMonthly = monthsData.length > 0 ? total / monthsData.length : 0;
             const percentOfIncome = totalIncome > 0 ? (total / totalIncome) * 100 : 0;
@@ -1593,8 +1602,9 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
         /* Individual month view - category breakdown */
         <div style={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: SPACING.md
+          gridTemplateColumns: "repeat(2, 1fr)",
+          gap: SPACING.md,
+          width: "100%"
         }}>
           {categories.map(([category, value]) => (
             <div key={category} style={{
@@ -1701,6 +1711,9 @@ const Panel = React.memo(({ title, subtitle, children, theme = "dark", style = {
       border: `1px solid ${panelBorder}`,
       transition: "all 0.3s ease",
       height: "100%",
+      width: "100%",
+      boxSizing: "border-box",
+      overflow: "hidden",
       ...style
     }}>
       {!isMobile && (
