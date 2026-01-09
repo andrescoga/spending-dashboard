@@ -1335,7 +1335,7 @@ const RecurringExpensesSection = React.memo(({ monthsData, theme = "dark" }) => 
 
   return (
     <div style={{
-      paddingBottom: isMobile ? "90px" : "0"
+      paddingBottom: isMobile ? "105px" : "0"
     }}>
       <Panel title="Recurring Expenses" theme={theme}>
         <div>
@@ -1458,7 +1458,7 @@ const BudgetingSection = React.memo(({ monthsData, categoryData, groupMap, theme
   if (!monthsData || monthsData.length === 0 || !groupMap || Object.keys(groupMap).length === 0) {
     return (
       <div style={{
-        paddingBottom: isMobile ? "90px" : "0",
+        paddingBottom: isMobile ? "105px" : "0",
         color: COLORS.gray[600],
         fontSize: FONT_SIZE.lg,
         textAlign: "center",
@@ -1471,7 +1471,7 @@ const BudgetingSection = React.memo(({ monthsData, categoryData, groupMap, theme
 
   return (
     <div style={{
-      paddingBottom: isMobile ? "90px" : "0"
+      paddingBottom: isMobile ? "105px" : "0"
     }}>
       <Panel title="Budget Targets" theme={theme}>
         {/* Header with Edit/Save toggle */}
@@ -1807,7 +1807,7 @@ const DashboardSection = React.memo(({ monthsData, categoryData, groupMap, theme
   if (!latestMonthData) {
     return (
       <div style={{
-        paddingBottom: isMobile ? "90px" : "0",
+        paddingBottom: isMobile ? "105px" : "0",
         color: COLORS.gray[600],
         fontSize: FONT_SIZE.lg,
         textAlign: "center",
@@ -1820,7 +1820,7 @@ const DashboardSection = React.memo(({ monthsData, categoryData, groupMap, theme
 
   return (
     <div style={{
-      paddingBottom: isMobile ? "90px" : "0"
+      paddingBottom: isMobile ? "105px" : "0"
     }}>
       {/* Current Month Spending Card */}
       <div style={{
@@ -2504,14 +2504,17 @@ const BottomNavigation = React.memo(({ activeSection, setActiveSection, isMobile
       bottom: 0,
       left: 0,
       right: 0,
+      width: "100%",
+      maxWidth: "100vw",
       background: "#000000",
       borderTop: `1px solid rgba(255,255,255,${OPACITY.border.default})`,
       display: "flex",
       justifyContent: "space-around",
       alignItems: "stretch",
-      height: "70px",
+      height: "85px",
       paddingBottom: "env(safe-area-inset-bottom)",
-      zIndex: 1000
+      zIndex: 1000,
+      boxSizing: "border-box"
     }}>
       {navItems.map(item => {
         const isActive = activeSection === item.id;
@@ -2734,6 +2737,7 @@ export default function SpendingDashboard() {
         background: theme === "dark" ? "#000000" : "#ffffff",
         borderBottom: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
         padding: `${SPACING['2xl']}px ${isMobile ? SPACING.md : SPACING['3xl']}px`,
+        paddingTop: isMobile ? `calc(env(safe-area-inset-top) + ${SPACING['2xl']}px)` : `${SPACING['2xl']}px`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
