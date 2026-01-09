@@ -47,7 +47,7 @@ function transformCategoryData(categoryDataForGroup) {
 // No hardcoded data constants needed
 
 
-const PALETTE = ["#ff6b6b", "#4ecdc4", "#ffe66d", "#95e1d3", "#f38181", "#aa96da", "#fcbad3", "#a8d8ea", "#f9c74f", "#90be6d", "#e17055", "#577590"];
+const PALETTE = ["#ff6b6b", "rgba(255,255,255,0.95)", "#ffe66d", "#95e1d3", "#f38181", "#aa96da", "#fcbad3", "#a8d8ea", "#f9c74f", "#90be6d", "#e17055", "#577590"];
 
 // Fixed colors for each spending group
 const GROUP_COLORS = {
@@ -63,29 +63,29 @@ const GROUP_COLORS = {
   "Fun": "#262626"
 };
 
-const FOOD_PALETTE = { "Bars": "#f38181", "Cafes": "#f9c74f", "Groceries": "#90be6d", "Restaurants": "#ff6b6b", "Takeout & Delivery": "#4ecdc4" };
-const FUN_PALETTE = { "Activities & Attractions": "#aa96da", "Books, Movies & Music": "#4ecdc4", "Live Events": "#ff6b6b" };
+const FOOD_PALETTE = { "Bars": "#f38181", "Cafes": "#f9c74f", "Groceries": "#90be6d", "Restaurants": "#ff6b6b", "Takeout & Delivery": "rgba(255,255,255,0.95)" };
+const FUN_PALETTE = { "Activities & Attractions": "#aa96da", "Books, Movies & Music": "rgba(255,255,255,0.95)", "Live Events": "#ff6b6b" };
 const GIVING_PALETTE = { "Charity": "#90be6d", "Family Care": "#ff6b6b", "Gifts": "#f9c74f" };
-const HEALTH_PALETTE = { "Fitness": "#4ecdc4", "Healthcare & Pharmacy": "#ff6b6b", "Personal Care": "#f9c74f" };
-const HOME_PALETTE = { "Home Improvement": "#aa96da", "Laundry & Dry Cleaning": "#f9c74f", "Rent & Insurance": "#ff6b6b", "Utilities": "#4ecdc4" };
-const SHOPPING_PALETTE = { "Clothing": "#aa96da", "Hobbies": "#4ecdc4", "Various": "#f9c74f" };
-const FINANCIAL_PALETTE = { "Fees & Admin": "#f38181", "Financial Fees": "#aa96da", "Interest Charged": "#ff6b6b", "Membership Fees": "#4ecdc4", "Taxes": "#90be6d" };
-const TRANSPORTATION_PALETTE = { "Public Transportation": "#90be6d", "Ride Share": "#4ecdc4" };
+const HEALTH_PALETTE = { "Fitness": "rgba(255,255,255,0.95)", "Healthcare & Pharmacy": "#ff6b6b", "Personal Care": "#f9c74f" };
+const HOME_PALETTE = { "Home Improvement": "#aa96da", "Laundry & Dry Cleaning": "#f9c74f", "Rent & Insurance": "#ff6b6b", "Utilities": "rgba(255,255,255,0.95)" };
+const SHOPPING_PALETTE = { "Clothing": "#aa96da", "Hobbies": "rgba(255,255,255,0.95)", "Various": "#f9c74f" };
+const FINANCIAL_PALETTE = { "Fees & Admin": "#f38181", "Financial Fees": "#aa96da", "Interest Charged": "#ff6b6b", "Membership Fees": "rgba(255,255,255,0.95)", "Taxes": "#90be6d" };
+const TRANSPORTATION_PALETTE = { "Public Transportation": "#90be6d", "Ride Share": "rgba(255,255,255,0.95)" };
 const TRAVEL_PALETTE = { "Air Travel": "#aa96da", "Hotels": "#ff6b6b" };
-const SUBSCRIPTIONS_PALETTE = { "AI Services": "#ff6b6b", "Courses & Classes": "#aa96da", "Newspapers & Magazines": "#f9c74f", "Streaming Services": "#4ecdc4", "Tech & Memberships": "#95e1d3" };
+const SUBSCRIPTIONS_PALETTE = { "AI Services": "#ff6b6b", "Courses & Classes": "#aa96da", "Newspapers & Magazines": "#f9c74f", "Streaming Services": "rgba(255,255,255,0.95)", "Tech & Memberships": "#95e1d3" };
 
 // ============ DESIGN SYSTEM CONSTANTS ============
 
 // Typography Scale
 const FONT_SIZE = {
-  xs: 10,
-  sm: 11,
-  base: 12,
-  md: 13,
-  lg: 14,
+  xs: 12,
+  sm: 13,
+  base: 14,
+  md: 15,
+  lg: 16,
   xl: 18,
   '2xl': 20,
-  '3xl': 22,
+  '3xl': 24,
 };
 
 // Spacing Scale (4px base)
@@ -156,7 +156,7 @@ const COLORS = {
   // Accent colors (from PALETTE)
   accent: {
     red: '#ff6b6b',
-    teal: '#4ecdc4',
+    teal: 'rgba(255,255,255,0.95)',
     yellow: '#ffe66d',
     mint: '#95e1d3',
     pink: '#f38181',
@@ -180,7 +180,7 @@ const COLORS = {
   semantic: {
     success: '#90be6d',
     warning: '#ff6b6b',
-    info: '#4ecdc4',
+    info: 'rgba(255,255,255,0.95)',
   },
 };
 
@@ -369,6 +369,30 @@ const A11Y = {
   navigation: 'Main category navigation',
   tabPanel: (category) => `${category} spending details`,
   controlPanel: 'Chart display controls',
+};
+
+// ============ BUDGET HELPER FUNCTIONS ============
+
+// Calculate actual YTD average for a group
+const calculateActualAverage = (group, categoryData, monthsData) => {
+  const groupData = categoryData[group] || [];
+  const total = groupData.reduce((sum, month) => {
+    return sum + Object.values(month)
+      .filter(v => typeof v === 'number')
+      .reduce((s, v) => s + v, 0);
+  }, 0);
+  return monthsData.length > 0 ? total / monthsData.length : 0;
+};
+
+// Get budget status and color based on actual vs target
+const getBudgetStatus = (actual, target) => {
+  if (!target || target === 0) return { status: "not-set", color: "#888" };
+  const diff = target - actual;
+  const percentDiff = (diff / target) * 100;
+
+  if (percentDiff > 5) return { status: "under", color: "#90be6d" };
+  if (percentDiff < -5) return { status: "over", color: "#ff6b6b" };
+  return { status: "on-track", color: "rgba(255,255,255,0.95)" };
 };
 
 // Responsive breakpoints
@@ -938,7 +962,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
     groupsAsPercentOfIncome.push({
       name: 'Savings',
       value: savings,
-      color: '#4ecdc4' // teal for savings
+      color: 'rgba(255,255,255,0.95)' // teal for savings
     });
 
     return groupsAsPercentOfIncome;
@@ -968,26 +992,37 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
 
   return (
     <>
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr",
-        gridTemplateRows: "auto auto",
-        gap: "1px",
-        background: "#000000",
-        marginBottom: "0"
-      }}>
-        {/* Main Chart - Full Width */}
-        <div style={{
-          gridColumn: "1",
-          gridRow: "1"
-        }}>
-          <Panel
-            title={chartType === "bars" ? "Month Comparison" : "Income vs Expenses"}
+      <Panel
+        title={chartType === "bars" ? "Month Comparison" : "Income vs Expenses"}
             subtitle={chartType === "bars" ? "NET spending by category" : "Spending as % of total income"}
             theme={theme}
             style={{ border: "none", borderRadius: 0 }}
           >
-          {/* Chart Controls - Upper Right */}
+          {/* Mobile Controls - Top */}
+          {isMobile && (
+            <div style={{
+              display: "flex",
+              gap: 8,
+              alignItems: "center",
+              marginBottom: SPACING['2xl'],
+              flexWrap: "wrap",
+              justifyContent: "space-between"
+            }}>
+              {/* Exclude Family Care toggle - checkbox only */}
+              <label style={{ display: "flex", alignItems: "center", cursor: "pointer", padding: "10px", borderRadius: 8, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <input
+                  type="checkbox"
+                  checked={excludeFamily}
+                  onChange={(e) => setExcludeFamily(e.target.checked)}
+                  style={{ accentColor: "rgba(255,255,255,0.95)", cursor: "pointer", transform: "scale(1.5)", margin: 0 }}
+                  aria-label="Exclude Family Care"
+                  title="Exclude Family Care"
+                />
+              </label>
+              <ControlPill value={chartType} setValue={setChartType} options={["bars", "vs income"]} />
+            </div>
+          )}
+          {/* Chart Controls - Upper Right (Desktop) */}
           {!isMobile && (
             <div style={{
               position: "absolute",
@@ -999,9 +1034,9 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
               zIndex: 10
             }}>
               {/* Month selector dropdown */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 8, background: "rgba(255,255,255,0.03)", fontSize: 10, color: "#888", border: "1px solid rgba(255,255,255,0.05)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 8, background: "rgba(255,255,255,0.03)", fontSize: 12, color: "#888", border: "1px solid rgba(255,255,255,0.05)" }}>
                 <span style={{ textTransform: "uppercase", letterSpacing: "0.5px", fontWeight: 500 }}>VIEW</span>
-                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={{ background: "rgba(0,0,0,0.25)", color: "#fff", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 4, padding: "3px 6px", fontSize: 10, outline: "none" }}>
+                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} style={{ background: "rgba(0,0,0,0.25)", color: "#fff", border: "1px solid rgba(255,255,255,0.10)", borderRadius: 4, padding: "3px 6px", fontSize: 12, outline: "none" }}>
                   <option value="All">All Months</option>
                   {monthsData.map((m) => (
                     <option key={m.month} value={m.month}>{m.month}</option>
@@ -1011,10 +1046,21 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
               {/* Show Income toggle */}
               {chartType === "bars" && (
                 <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", padding: "6px 10px", borderRadius: 8, background: showIncome ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                  <input type="checkbox" checked={showIncome} onChange={(e) => setShowIncome(e.target.checked)} style={{ accentColor: "#4ecdc4", cursor: "pointer", transform: "scale(1.2)", marginRight: "4px" }} />
-                  <span style={{ color: showIncome ? "#4ecdc4" : "#888", fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>SHOW INCOME</span>
+                  <input type="checkbox" checked={showIncome} onChange={(e) => setShowIncome(e.target.checked)} style={{ accentColor: "rgba(255,255,255,0.95)", cursor: "pointer", transform: "scale(1.2)", marginRight: "4px" }} />
+                  <span style={{ color: showIncome ? "rgba(255,255,255,0.95)" : "#888", fontSize: 12, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.5px" }}>SHOW INCOME</span>
                 </label>
               )}
+              {/* Exclude Family Care toggle - checkbox only */}
+              <label style={{ display: "flex", alignItems: "center", cursor: "pointer", padding: "8px", borderRadius: 8, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                <input
+                  type="checkbox"
+                  checked={excludeFamily}
+                  onChange={(e) => setExcludeFamily(e.target.checked)}
+                  style={{ accentColor: "rgba(255,255,255,0.95)", cursor: "pointer", transform: "scale(1.4)", margin: 0 }}
+                  aria-label="Exclude Family Care"
+                  title="Exclude Family Care"
+                />
+              </label>
               <ControlPill value={chartType} setValue={setChartType} options={["bars", "vs income"]} />
             </div>
           )}
@@ -1025,10 +1071,10 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                 singleMonthGroupData && singleMonthGroupData.length > 0 ? (
                   <ComposedChart data={singleMonthGroupData} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
                     <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="group" tick={{ fill: theme === "light" ? "#1a1a1a" : "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
-                    <YAxis tick={{ fill: theme === "light" ? "#1a1a1a" : "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
+                    <XAxis dataKey="group" tick={{ fill: theme === "light" ? "#1a1a1a" : "#888", fontSize: 12 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
+                    <YAxis tick={{ fill: theme === "light" ? "#1a1a1a" : "#666", fontSize: 13 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
                     {!isMobile && <Tooltip content={<TooltipBox scale="absolute" />} />}
-                    {!isMobile && <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 11 }} />}
+                    {!isMobile && <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 13 }} />}
                     {/* Stack categories within each group */}
                     {(() => {
                       // Extract all unique categories from the data
@@ -1046,13 +1092,13 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                 ) : (
                   <ComposedChart data={dataForBars} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
                     <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fill: theme === "light" ? "#1a1a1a" : "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
-                    <YAxis tick={{ fill: theme === "light" ? "#1a1a1a" : "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
+                    <XAxis dataKey="month" tick={{ fill: theme === "light" ? "#1a1a1a" : "#888", fontSize: 12 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
+                    <YAxis tick={{ fill: theme === "light" ? "#1a1a1a" : "#666", fontSize: 13 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
                     {!isMobile && <Tooltip content={<TooltipBox scale="absolute" />} />}
-                    {!isMobile && <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 11 }} />}
+                    {!isMobile && <Legend wrapperStyle={{ color: theme === "light" ? "#1a1a1a" : "#999", fontSize: 13 }} />}
                     {activeSeries.map((key) => (<Bar key={key} dataKey={key} stackId="a" fill={colorFor(key)} radius={[3, 3, 0, 0]} maxBarSize={36} opacity={0.95} />))}
                     {/* Income line overlay */}
-                    {showIncome && <Line type="monotone" dataKey="income" stroke="#4ecdc4" strokeWidth={1.5} dot={{ fill: "#4ecdc4", r: 2 }} name="Income" />}
+                    {showIncome && <Line type="monotone" dataKey="income" stroke="rgba(255,255,255,0.95)" strokeWidth={1.5} dot={{ fill: "rgba(255,255,255,0.95)", r: 2 }} name="Income" />}
                   </ComposedChart>
                 )
               ) : (
@@ -1087,21 +1133,13 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
             totalsByGroup={totalsByGroup}
             totalIncome={totalIncome}
           />
-          {/* Controls below chart */}
-          <div style={{ marginTop: isMobile ? SPACING['2xl'] : 12, display: "flex", gap: 10, flexWrap: "wrap", justifyContent: isMobile ? "center" : "space-between", alignItems: "center" }}>
-            {!isMobile && chartType === "bars" && (
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <Tag text={`${activeSeries.length} groups`} />
-                <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
-              </div>
-            )}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "10px 16px" : "6px 12px", borderRadius: 8, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4", transform: isMobile ? "scale(1.3)" : "scale(1)", marginRight: isMobile ? "4px" : "0" }} />
-                <span style={{ color: excludeFamily ? "#4ecdc4" : "#888", fontSize: isMobile ? 12 : 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Exclude Family Care</span>
-              </label>
+          {/* Tags below chart on desktop */}
+          {!isMobile && chartType === "bars" && (
+            <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Tag text={`${activeSeries.length} groups`} />
+              <Tag text={spikes.length ? `Spike months: ${spikes.join(", ")}` : "No spikes flagged"} tone={spikes.length ? "warn" : "ok"} />
             </div>
-          </div>
+          )}
           {/* Group Summary Cards - below chart on desktop only, linked to month selection */}
           {!isMobile && (
             <div style={{ marginTop: SPACING['3xl'] }}>
@@ -1120,7 +1158,7 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                           <span style={{ color: "#aaa", fontSize: 12 }}>{group}</span>
                         </div>
                         <div style={{ color: valueColor, fontSize: 20, fontWeight: 800, marginBottom: 2, transition: "color 0.3s ease" }}>{percentOfIncome.toFixed(1)}%</div>
-                        <div style={{ color: "#666", fontSize: 11 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
+                        <div style={{ color: "#666", fontSize: 13 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
                       </div>
                     );
                   })}
@@ -1132,11 +1170,11 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                     return (
                       <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                          <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
-                          <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL SPENDING</span>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(255,255,255,0.95)" }} />
+                          <span style={{ color: "rgba(255,255,255,0.95)", fontSize: 12, fontWeight: 700 }}>TOTAL SPENDING</span>
                         </div>
-                        <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(avgMonthly)}/mo</div>
-                        <div style={{ color: "#666", fontSize: 11 }}>{percentOfIncome.toFixed(1)}% of income</div>
+                        <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(avgMonthly)}/mo</div>
+                        <div style={{ color: "#666", fontSize: 13 }}>{percentOfIncome.toFixed(1)}% of income</div>
                       </div>
                     );
                   })()}
@@ -1146,11 +1184,11 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                     return (
                       <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                          <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
-                          <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL INCOME</span>
+                          <div style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(255,255,255,0.95)" }} />
+                          <span style={{ color: "rgba(255,255,255,0.95)", fontSize: 12, fontWeight: 700 }}>TOTAL INCOME</span>
                         </div>
-                        <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(avgIncome)}/mo</div>
-                        <div style={{ color: "#666", fontSize: 11 }}>Total: {formatCurrency(totalIncome)}</div>
+                        <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(avgIncome)}/mo</div>
+                        <div style={{ color: "#666", fontSize: 13 }}>Total: {formatCurrency(totalIncome)}</div>
                       </div>
                     );
                   })()}
@@ -1188,29 +1226,29 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
                                 <span style={{ color: "#aaa", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{category}</span>
                               </div>
                               <div style={{ color: valueColor, fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(value)}</div>
-                              <div style={{ color: "#666", fontSize: 11 }}>{percentOfIncome.toFixed(1)}% of income</div>
+                              <div style={{ color: "#666", fontSize: 13 }}>{percentOfIncome.toFixed(1)}% of income</div>
                             </div>
                           );
                         })}
                         {/* Total spending card */}
                         <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
-                            <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>TOTAL SPENDING</span>
+                            <div style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(255,255,255,0.95)" }} />
+                            <span style={{ color: "rgba(255,255,255,0.95)", fontSize: 12, fontWeight: 700 }}>TOTAL SPENDING</span>
                           </div>
-                          <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(monthTotal)}</div>
-                          <div style={{ color: isSurplus ? "#4ecdc4" : "#ff6b6b", fontSize: 11 }}>
+                          <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(monthTotal)}</div>
+                          <div style={{ color: isSurplus ? "rgba(255,255,255,0.95)" : "#ff6b6b", fontSize: 13 }}>
                             {isSurplus ? '↑ ' : '↓ '}{formatCurrency(Math.abs(surplus))} {isSurplus ? 'surplus' : 'deficit'}
                           </div>
                         </div>
                         {/* Income card for the month */}
                         <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(78,205,196,0.08)", border: "2px solid rgba(78,205,196,0.3)" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                            <div style={{ width: 8, height: 8, borderRadius: 2, background: "#4ecdc4" }} />
-                            <span style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700 }}>INCOME</span>
+                            <div style={{ width: 8, height: 8, borderRadius: 2, background: "rgba(255,255,255,0.95)" }} />
+                            <span style={{ color: "rgba(255,255,255,0.95)", fontSize: 12, fontWeight: 700 }}>INCOME</span>
                           </div>
-                          <div style={{ color: "#4ecdc4", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(income)}</div>
-                          <div style={{ color: "#666", fontSize: 11 }}>{selectedMonth}</div>
+                          <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 20, fontWeight: 800, marginBottom: 2 }}>{formatCurrency(income)}</div>
+                          <div style={{ color: "#666", fontSize: 13 }}>{selectedMonth}</div>
                         </div>
                       </div>
                     </>
@@ -1219,156 +1257,668 @@ function OverviewTab({ excludeFamily, setExcludeFamily, monthsData, givingCatego
               )}
             </div>
           )}
-          </Panel>
-        </div>
-
-        {/* Recurrent Expenses - Full Width */}
-        <div style={{
-          gridColumn: "1",
-          gridRow: "2"
-        }}>
-          <Panel title="Recurrent Expenses" theme={theme} style={{ border: "none", borderRadius: 0 }}>
-          {(() => {
-            // Helper function to convert to monthly average
-            const toMonthly = (amount, frequency) => {
-              if (frequency === "Monthly") return amount;
-              if (frequency === "Yearly" || frequency === "Annually") return amount / 12;
-              if (frequency === "Every 12-weeks") return amount * 52 / 12 / 12;
-              if (frequency === "Every 5-weeks") return amount * 52 / 5 / 12;
-              return amount;
-            };
-
-            const expenseGroups = [
-              {
-                name: "Home",
-                items: [
-                  { name: "Rent", amount: 865, frequency: "Monthly" },
-                  { name: "Utilities", amount: 150, frequency: "Monthly" }
-                ]
-              },
-              {
-                name: "Tech & Cloud",
-                items: [
-                  { name: "ChatGPT", amount: 21.78, frequency: "Monthly" },
-                  { name: "Claude", amount: 21.78, frequency: "Monthly" },
-                  { name: "Google One", amount: 21.76, frequency: "Monthly" },
-                  { name: "Ircamamplify", amount: 11.74, frequency: "Monthly" }
-                ]
-              },
-              {
-                name: "Growth & Fun",
-                items: [
-                  { name: "Fitness", amount: 212, frequency: "Monthly" },
-                  { name: "Coursera", amount: 399, frequency: "Annually" },
-                  { name: "French", amount: 85, frequency: "Every 5-weeks" },
-                  { name: "The Economist", amount: 110, frequency: "Every 12-weeks" },
-                  { name: "MUBI", amount: 167.88, frequency: "Yearly" }
-                ]
-              },
-              {
-                name: "Services",
-                items: [
-                  { name: "Apple Care", amount: 8.70, frequency: "Monthly" },
-                  { name: "Amazon Prime", amount: 16.32, frequency: "Monthly" },
-                  { name: "iCloud", amount: 7.97, frequency: "Monthly" }
-                ]
-              },
-              {
-                name: "Financial",
-                items: [
-                  { name: "Amex Memberships", amount: 1020, frequency: "Yearly" }
-                ]
-              }
-            ];
-
-            // Calculate monthly averages for each group
-            const groupAverages = expenseGroups.map(group => ({
-              name: group.name,
-              monthly: group.items.reduce((sum, item) => sum + toMonthly(item.amount, item.frequency), 0)
-            }));
-
-            const totalMonthly = groupAverages.reduce((sum, g) => sum + g.monthly, 0);
-
-            return (
-              <div>
-                {/* Summary Card */}
-                <div style={{
-                  padding: "12px",
-                  borderRadius: 8,
-                  background: theme === "light" ? "rgba(78,205,196,0.08)" : "rgba(78,205,196,0.08)",
-                  border: `1px solid ${theme === "light" ? "rgba(78,205,196,0.2)" : "rgba(78,205,196,0.15)"}`,
-                  marginBottom: 12
-                }}>
-                  <div style={{ color: "#4ecdc4", fontSize: 10, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Monthly Average</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, fontSize: 10 }}>
-                    {groupAverages.map((group, idx) => (
-                      <div key={idx} style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: theme === "light" ? "#6a6a6a" : "#888" }}>{group.name}</span>
-                        <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 600 }}>{formatCurrency(group.monthly)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{
-                    marginTop: 8,
-                    paddingTop: 8,
-                    borderTop: `1px solid ${theme === "light" ? "rgba(78,205,196,0.2)" : "rgba(78,205,196,0.15)"}`,
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center"
-                  }}>
-                    <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontSize: 11, fontWeight: 700 }}>Total</span>
-                    <span style={{ color: "#4ecdc4", fontSize: 16, fontWeight: 800 }}>{formatCurrency(totalMonthly)}</span>
-                  </div>
-                </div>
-
-                {/* Group Cards */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
-                  {expenseGroups.map((group, groupIdx) => (
-                    <div key={groupIdx} style={{
-                      padding: "8px 10px",
-                      borderRadius: 6,
-                      background: theme === "light" ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.03)",
-                      border: `1px solid ${theme === "light" ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)"}`
-                    }}>
-                      <div style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontSize: 10, fontWeight: 700, marginBottom: 6, textTransform: "uppercase" }}>
-                        {group.name}
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                        {group.items.map((item, itemIdx) => (
-                          <div key={itemIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10 }}>
-                            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                              <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 500 }}>{item.name}</span>
-                              <span style={{ color: theme === "light" ? "#888" : "#666", fontSize: 8 }}>({item.frequency})</span>
-                            </div>
-                            <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 600 }}>{formatCurrency(item.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{
-                        marginTop: 6,
-                        paddingTop: 6,
-                        borderTop: `1px solid ${theme === "light" ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)"}`,
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: 10
-                      }}>
-                        <span style={{ color: theme === "light" ? "#6a6a6a" : "#888" }}>Avg/month</span>
-                        <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 700 }}>
-                          {formatCurrency(group.items.reduce((sum, item) => sum + toMonthly(item.amount, item.frequency), 0))}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-          </Panel>
-        </div>
-      </div>
+      </Panel>
     </>
   );
 }
+
+// ============ RECURRING EXPENSES SECTION ============
+const RecurringExpensesSection = React.memo(({ monthsData, theme = "dark" }) => {
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
+
+  // Helper function to convert to monthly average
+  const toMonthly = (amount, frequency) => {
+    if (frequency === "Monthly") return amount;
+    if (frequency === "Yearly" || frequency === "Annually") return amount / 12;
+    if (frequency === "Every 12-weeks") return amount * 52 / 12 / 12;
+    if (frequency === "Every 5-weeks") return amount * 52 / 5 / 12;
+    return amount;
+  };
+
+  const expenseGroups = [
+    {
+      name: "Home",
+      items: [
+        { name: "Rent", amount: 865, frequency: "Monthly" },
+        { name: "Utilities", amount: 150, frequency: "Monthly" }
+      ]
+    },
+    {
+      name: "Tech & Cloud",
+      items: [
+        { name: "ChatGPT", amount: 21.78, frequency: "Monthly" },
+        { name: "Claude", amount: 21.78, frequency: "Monthly" },
+        { name: "Google One", amount: 21.76, frequency: "Monthly" },
+        { name: "Ircamamplify", amount: 11.74, frequency: "Monthly" }
+      ]
+    },
+    {
+      name: "Growth & Fun",
+      items: [
+        { name: "Fitness", amount: 212, frequency: "Monthly" },
+        { name: "Coursera", amount: 399, frequency: "Annually" },
+        { name: "French", amount: 85, frequency: "Every 5-weeks" },
+        { name: "The Economist", amount: 110, frequency: "Every 12-weeks" },
+        { name: "MUBI", amount: 167.88, frequency: "Yearly" },
+        { name: "MealPal", amount: 54, frequency: "Monthly" }
+      ]
+    },
+    {
+      name: "Services",
+      items: [
+        { name: "Apple Care", amount: 8.70, frequency: "Monthly" },
+        { name: "iCloud", amount: 7.97, frequency: "Monthly" }
+      ]
+    },
+    {
+      name: "Financial",
+      items: [
+        { name: "Amex Memberships", amount: 1020, frequency: "Yearly" }
+      ]
+    }
+  ];
+
+  // Calculate monthly averages for each group
+  const groupAverages = expenseGroups.map(group => ({
+    name: group.name,
+    monthly: group.items.reduce((sum, item) => sum + toMonthly(item.amount, item.frequency), 0)
+  }));
+
+  const totalMonthly = groupAverages.reduce((sum, g) => sum + g.monthly, 0);
+
+  // Calculate average monthly income from monthsData
+  const avgMonthlyIncome = useMemo(() => {
+    if (!monthsData || monthsData.length === 0) return 0;
+    const totalIncome = monthsData.reduce((sum, month) => sum + (month.income || 0), 0);
+    return totalIncome / monthsData.length;
+  }, [monthsData]);
+
+  return (
+    <div style={{
+      paddingBottom: isMobile ? "90px" : "0"
+    }}>
+      <Panel title="Recurring Expenses" theme={theme}>
+        <div>
+          {/* Group Cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+            {expenseGroups.map((group, groupIdx) => (
+              <div key={groupIdx} style={{
+                padding: "8px 10px",
+                borderRadius: 6,
+                background: theme === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.05)",
+                border: `1px solid ${theme === "light" ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)"}`
+              }}>
+                <div style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                  {group.name}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  {group.items.map((item, itemIdx) => (
+                    <div key={itemIdx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                        <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 500 }}>{item.name}</span>
+                        <span style={{ color: theme === "light" ? "#888" : "#666", fontSize: 11 }}>({item.frequency})</span>
+                      </div>
+                      <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 600 }}>{formatCurrency(item.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{
+                  marginTop: 6,
+                  paddingTop: 6,
+                  borderTop: `1px solid ${theme === "light" ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)"}`,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: 12
+                }}>
+                  <span style={{ color: theme === "light" ? "#6a6a6a" : "#888" }}>Avg/month</span>
+                  <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 700 }}>
+                    {formatCurrency(group.items.reduce((sum, item) => sum + toMonthly(item.amount, item.frequency), 0))}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {/* Averages Card */}
+            <div style={{
+              padding: "8px 10px",
+              borderRadius: 6,
+              background: theme === "light" ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.05)",
+              border: `1px solid ${theme === "light" ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)"}`
+            }}>
+              <div style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontSize: 12, fontWeight: 700, marginBottom: 6 }}>
+                Averages
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {/* Monthly Average */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                  <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 500 }}>Monthly Average</span>
+                  <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 600 }}>{formatCurrency(totalMonthly)}</span>
+                </div>
+                {/* Bi-Weekly Average */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                  <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 500 }}>Bi-Weekly Average</span>
+                  <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 600 }}>{formatCurrency(totalMonthly / 2.1725)}</span>
+                </div>
+                {/* Left in Paycheck */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                  <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 500 }}>Left in Paycheck</span>
+                  <span style={{ color: theme === "light" ? "#1a1a1a" : "#fff", fontWeight: 600 }}>{formatCurrency((avgMonthlyIncome / 2.1725) - (totalMonthly / 2.1725))}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Panel>
+    </div>
+  );
+});
+RecurringExpensesSection.displayName = 'RecurringExpensesSection';
+
+// ============ BUDGETING SECTION ============
+const BudgetingSection = React.memo(({ monthsData, categoryData, groupMap, theme = "dark" }) => {
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
+
+  // Load budgets from localStorage
+  const [budgets, setBudgets] = useState(() => {
+    try {
+      const saved = localStorage.getItem('spendingBudgets');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.error('Error loading budgets from localStorage:', e);
+      return {};
+    }
+  });
+
+  const [editMode, setEditMode] = useState(false);
+
+  // Save to localStorage when budgets change
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('spendingBudgets', JSON.stringify(budgets));
+    } catch (e) {
+      console.error('Error saving budgets to localStorage:', e);
+    }
+  }, [budgets]);
+
+  // Calculate totals
+  const { totalBudget, totalActual } = useMemo(() => {
+    const groups = Object.keys(groupMap || {});
+    const totalBudget = groups.reduce((sum, group) => {
+      return sum + (budgets[group]?.target || 0);
+    }, 0);
+    const totalActual = groups.reduce((sum, group) => {
+      return sum + calculateActualAverage(group, categoryData, monthsData);
+    }, 0);
+    return { totalBudget, totalActual };
+  }, [budgets, categoryData, groupMap, monthsData]);
+
+  // Handle empty budgets state
+  const hasBudgets = Object.keys(budgets).length > 0 && Object.values(budgets).some(b => b.target > 0);
+
+  if (!monthsData || monthsData.length === 0 || !groupMap || Object.keys(groupMap).length === 0) {
+    return (
+      <div style={{
+        paddingBottom: isMobile ? "90px" : "0",
+        color: COLORS.gray[600],
+        fontSize: FONT_SIZE.lg,
+        textAlign: "center",
+        padding: SPACING["7xl"]
+      }}>
+        Loading data...
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      paddingBottom: isMobile ? "90px" : "0"
+    }}>
+      <Panel title="Budget Targets" theme={theme}>
+        {/* Header with Edit/Save toggle */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: SPACING['3xl'],
+          flexWrap: "wrap",
+          gap: SPACING.md
+        }}>
+          <div style={{ color: COLORS.gray[600], fontSize: FONT_SIZE.sm }}>
+            Set monthly average targets for each category
+          </div>
+          <button
+            onClick={() => setEditMode(!editMode)}
+            style={{
+              padding: `${SPACING.lg}px ${SPACING['3xl']}px`,
+              minHeight: "44px",
+              borderRadius: RADIUS.lg,
+              border: `1px solid rgba(255,255,255,${OPACITY.border.default})`,
+              background: editMode ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)",
+              color: editMode ? "rgba(255,255,255,0.95)" : COLORS.white,
+              fontSize: FONT_SIZE.sm,
+              fontWeight: 700,
+              cursor: "pointer",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+              transition: "all 0.2s ease"
+            }}
+          >
+            {editMode ? "Save" : "Edit"}
+          </button>
+        </div>
+
+        {!hasBudgets && !editMode ? (
+          /* Empty state */
+          <div style={{
+            textAlign: "center",
+            padding: SPACING['6xl'],
+            background: "rgba(255,255,255,0.02)",
+            borderRadius: RADIUS.xl,
+            border: `1px solid rgba(255,255,255,${OPACITY.border.default})`
+          }}>
+            <div style={{
+              fontSize: FONT_SIZE.xl,
+              color: COLORS.gray[600],
+              marginBottom: SPACING['2xl']
+            }}>
+              No budgets set yet
+            </div>
+            <button
+              onClick={() => setEditMode(true)}
+              style={{
+                padding: `${SPACING.xl}px ${SPACING['4xl']}px`,
+                borderRadius: RADIUS.lg,
+                background: "rgba(78,205,196,0.15)",
+                border: "1px solid rgba(78,205,196,0.3)",
+                color: "rgba(255,255,255,0.95)",
+                fontSize: FONT_SIZE.md,
+                fontWeight: 700,
+                cursor: "pointer",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px"
+              }}
+            >
+              Set Your First Budget
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Summary Card */}
+            <div style={{
+              padding: SPACING['3xl'],
+              borderRadius: RADIUS.xl,
+              background: "rgba(78,205,196,0.08)",
+              border: "1px solid rgba(78,205,196,0.2)",
+              marginBottom: SPACING['3xl'],
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
+              gap: SPACING['2xl']
+            }}>
+              <div>
+                <div style={{
+                  color: COLORS.gray[600],
+                  fontSize: FONT_SIZE.xs,
+                  marginBottom: SPACING.xs,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px"
+                }}>
+                  TOTAL BUDGET
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.95)", fontSize: FONT_SIZE['2xl'], fontWeight: 800 }}>
+                  {formatCurrency(totalBudget)}
+                </div>
+              </div>
+              <div>
+                <div style={{
+                  color: COLORS.gray[600],
+                  fontSize: FONT_SIZE.xs,
+                  marginBottom: SPACING.xs,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px"
+                }}>
+                  ACTUAL AVG
+                </div>
+                <div style={{ color: COLORS.white, fontSize: FONT_SIZE['2xl'], fontWeight: 800 }}>
+                  {formatCurrency(totalActual)}
+                </div>
+              </div>
+              <div>
+                <div style={{
+                  color: COLORS.gray[600],
+                  fontSize: FONT_SIZE.xs,
+                  marginBottom: SPACING.xs,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px"
+                }}>
+                  DIFFERENCE
+                </div>
+                <div style={{
+                  color: totalBudget - totalActual >= 0 ? "#90be6d" : "#ff6b6b",
+                  fontSize: FONT_SIZE['2xl'],
+                  fontWeight: 800
+                }}>
+                  {totalBudget - totalActual >= 0 ? "+" : ""}{formatCurrency(totalBudget - totalActual)}
+                </div>
+              </div>
+            </div>
+
+            {/* Budget Cards */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
+              gap: SPACING['2xl']
+            }}>
+              {Object.keys(groupMap).map(group => {
+                const actualAvg = calculateActualAverage(group, categoryData, monthsData);
+                const target = budgets[group]?.target || 0;
+                const { status, color } = getBudgetStatus(actualAvg, target);
+                const diff = target - actualAvg;
+                const progress = target > 0 ? Math.min((actualAvg / target) * 100, 100) : 0;
+
+                return (
+                  <div
+                    key={group}
+                    style={{
+                      padding: SPACING['3xl'],
+                      borderRadius: RADIUS.lg,
+                      background: "rgba(255,255,255,0.03)",
+                      border: `1px solid rgba(255,255,255,${OPACITY.border.default})`
+                    }}
+                  >
+                    {/* Group Header */}
+                    <div style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: SPACING['2xl'],
+                      flexWrap: "wrap",
+                      gap: SPACING.md
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: SPACING.md }}>
+                        <div style={{
+                          width: "10px",
+                          height: "10px",
+                          borderRadius: RADIUS.sm,
+                          background: GROUP_COLORS[group] || "#888"
+                        }} />
+                        <div style={{ color: COLORS.white, fontSize: FONT_SIZE.md, fontWeight: 700 }}>
+                          {group}
+                        </div>
+                      </div>
+                      {target > 0 && status !== "not-set" && (
+                        <div style={{
+                          padding: `${SPACING.xs}px ${SPACING.md}px`,
+                          borderRadius: RADIUS.base,
+                          background: `${color}22`,
+                          border: `1px solid ${color}44`,
+                          color: color,
+                          fontSize: FONT_SIZE.xs,
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px"
+                        }}>
+                          {status === "under" ? "Under" : status === "over" ? "Over" : "On Track"}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Target Input */}
+                    <div style={{ marginBottom: SPACING.md }}>
+                      <div style={{
+                        color: COLORS.gray[600],
+                        fontSize: FONT_SIZE.xs,
+                        marginBottom: SPACING.xs,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px"
+                      }}>
+                        Target (Monthly Avg)
+                      </div>
+                      {editMode ? (
+                        <input
+                          type="number"
+                          value={target || ""}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value) || 0;
+                            setBudgets(prev => ({
+                              ...prev,
+                              [group]: { ...prev[group], target: value, enabled: true }
+                            }));
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: `${SPACING.md}px ${SPACING.xl}px`,
+                            borderRadius: RADIUS.md,
+                            border: `1px solid rgba(255,255,255,0.15)`,
+                            background: "rgba(255,255,255,0.05)",
+                            color: COLORS.white,
+                            fontSize: FONT_SIZE.lg,
+                            fontWeight: 600,
+                            outline: "none"
+                          }}
+                          placeholder="0"
+                        />
+                      ) : (
+                        <div style={{
+                          color: COLORS.white,
+                          fontSize: FONT_SIZE.xl,
+                          fontWeight: 800
+                        }}>
+                          {target > 0 ? formatCurrency(target) : "Not set"}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actual Average */}
+                    <div style={{ marginBottom: SPACING.md }}>
+                      <div style={{
+                        color: COLORS.gray[600],
+                        fontSize: FONT_SIZE.xs,
+                        marginBottom: SPACING.xs,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px"
+                      }}>
+                        Actual YTD Avg
+                      </div>
+                      <div style={{
+                        color: COLORS.white,
+                        fontSize: FONT_SIZE.xl,
+                        fontWeight: 800
+                      }}>
+                        {formatCurrency(actualAvg)}
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    {target > 0 && (
+                      <>
+                        <div style={{
+                          width: "100%",
+                          height: "8px",
+                          background: "rgba(255,255,255,0.08)",
+                          borderRadius: RADIUS.full,
+                          overflow: "hidden",
+                          marginBottom: SPACING.md
+                        }}>
+                          <div style={{
+                            width: `${progress}%`,
+                            height: "100%",
+                            background: color,
+                            transition: "width 0.3s ease"
+                          }} />
+                        </div>
+
+                        {/* Difference */}
+                        <div style={{
+                          color: diff >= 0 ? "#90be6d" : "#ff6b6b",
+                          fontSize: FONT_SIZE.sm,
+                          fontWeight: 600
+                        }}>
+                          {diff >= 0 ? "↓" : "↑"} {formatCurrency(Math.abs(diff))} {diff >= 0 ? "under budget" : "over budget"}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </Panel>
+    </div>
+  );
+});
+BudgetingSection.displayName = 'BudgetingSection';
+
+// ============ DASHBOARD SECTION ============
+const DashboardSection = React.memo(({ monthsData, categoryData, groupMap, theme = "dark" }) => {
+  const isMobile = useMediaQuery(BREAKPOINTS.mobile);
+
+  // Get the latest month's data
+  const latestMonthData = useMemo(() => {
+    if (!monthsData || monthsData.length === 0) return null;
+    const lastMonth = monthsData[monthsData.length - 1];
+
+    // Calculate total spending for the month
+    const groups = Object.keys(groupMap || {});
+    const total = groups.reduce((sum, group) => sum + (lastMonth[group] || 0), 0);
+
+    // Get specific subcategory spending
+    const restaurants = lastMonth["Restaurants"] || 0;
+    const activities = lastMonth["Activities & Attractions"] || 0;
+    const groceries = lastMonth["Groceries"] || 0;
+
+    return {
+      month: lastMonth.month,
+      total: total,
+      income: lastMonth.income || 0,
+      restaurants: restaurants,
+      activities: activities,
+      groceries: groceries
+    };
+  }, [monthsData, groupMap]);
+
+  // Budget targets
+  const budgets = useMemo(() => [
+    { name: "Restaurants", actual: latestMonthData?.restaurants || 0, budget: 600 },
+    { name: "Activities & Attractions", actual: latestMonthData?.activities || 0, budget: 150 },
+    { name: "Groceries", actual: latestMonthData?.groceries || 0, budget: 250 }
+  ], [latestMonthData]);
+
+  if (!latestMonthData) {
+    return (
+      <div style={{
+        paddingBottom: isMobile ? "90px" : "0",
+        color: COLORS.gray[600],
+        fontSize: FONT_SIZE.lg,
+        textAlign: "center",
+        padding: SPACING["7xl"]
+      }}>
+        Loading dashboard...
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      paddingBottom: isMobile ? "90px" : "0"
+    }}>
+      {/* Current Month Spending Card */}
+      <div style={{
+        background: theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
+        borderRadius: RADIUS.xl,
+        padding: SPACING['4xl'],
+        marginBottom: SPACING['4xl'],
+        border: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+        maxWidth: "95%",
+        margin: "0 auto",
+        marginBottom: SPACING['4xl']
+      }}>
+        {/* Subheader */}
+        <div style={{
+          fontSize: FONT_SIZE.xs,
+          fontWeight: 600,
+          color: "rgba(255,255,255,0.7)",
+          letterSpacing: "0.5px",
+          marginBottom: SPACING.lg
+        }}>
+          Current Spend This Month
+        </div>
+
+        {/* Current Month Total */}
+        <div style={{
+          fontSize: FONT_SIZE['3xl'],
+          fontWeight: 800,
+          color: theme === "dark" ? COLORS.white : "#1a1a1a",
+          marginBottom: SPACING['2xl']
+        }}>
+          {formatCurrency(latestMonthData.total)}
+        </div>
+
+        {/* Month Label */}
+        <div style={{
+          fontSize: FONT_SIZE.sm,
+          color: COLORS.gray[600],
+          marginBottom: SPACING['4xl']
+        }}>
+          {latestMonthData.month}
+        </div>
+
+        {/* Budget Progress Bars */}
+        <div style={{ display: "flex", flexDirection: "column", gap: SPACING['3xl'] }}>
+          {budgets.map((item, index) => {
+            const percentage = Math.min((item.actual / item.budget) * 100, 100);
+            const isOverBudget = item.actual > item.budget;
+
+            return (
+              <div key={index}>
+                {/* Category Name and Amount */}
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: SPACING.md
+                }}>
+                  <span style={{
+                    fontSize: FONT_SIZE.sm,
+                    color: COLORS.white,
+                    fontWeight: 600
+                  }}>
+                    {item.name}
+                  </span>
+                  <span style={{
+                    fontSize: FONT_SIZE.sm,
+                    color: isOverBudget ? "#ff6b6b" : COLORS.gray[400],
+                    fontWeight: 700
+                  }}>
+                    {formatCurrency(item.actual)} / {formatCurrency(item.budget)}
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div style={{
+                  width: "100%",
+                  height: "12px",
+                  background: "rgba(255,255,255,0.08)",
+                  borderRadius: "999px",
+                  overflow: "hidden"
+                }}>
+                  <div style={{
+                    width: `${percentage}%`,
+                    height: "100%",
+                    background: isOverBudget ? "#ff6b6b" : "rgba(255,255,255,0.95)",
+                    borderRadius: "999px",
+                    transition: "width 0.3s ease"
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+});
+DashboardSection.displayName = 'DashboardSection';
 
 // ============ GIVING TAB (with Family Care toggle) ============
 function GivingTab({ categoryData }) {
@@ -1410,12 +1960,12 @@ function GivingTab({ categoryData }) {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginBottom: 22, padding: "16px 18px", borderRadius: 16, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", borderRadius: 12, background: excludeFamily ? "rgba(78,205,196,0.15)" : "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-            <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "#4ecdc4", transform: isMobile ? "scale(1.3)" : "scale(1)", marginRight: isMobile ? "4px" : "0" }} />
-            <span style={{ color: excludeFamily ? "#4ecdc4" : "#888", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>Exclude Family Care</span>
+            <input type="checkbox" checked={excludeFamily} onChange={(e) => setExcludeFamily(e.target.checked)} style={{ accentColor: "rgba(255,255,255,0.95)", transform: isMobile ? "scale(1.3)" : "scale(1)", marginRight: isMobile ? "4px" : "0" }} />
+            <span style={{ color: excludeFamily ? "rgba(255,255,255,0.95)" : "#888", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.2 }}>Exclude Family Care</span>
           </label>
         </div>
       </div>
-      {excludeFamily && (<div style={{ background: "rgba(78,205,196,0.08)", border: "1px solid rgba(78,205,196,0.15)", borderRadius: 12, padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "center", gap: 12 }}><span style={{ color: "#4ecdc4" }}>ℹ</span><span style={{ color: "#94a3b8", fontSize: 13 }}>Family Care ({formatCurrency(totalFamilyCare)}) excluded from charts</span></div>)}
+      {excludeFamily && (<div style={{ background: "rgba(78,205,196,0.08)", border: "1px solid rgba(78,205,196,0.15)", borderRadius: 12, padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "center", gap: 12 }}><span style={{ color: "rgba(255,255,255,0.95)" }}>ℹ</span><span style={{ color: "#94a3b8", fontSize: 13 }}>Family Care ({formatCurrency(totalFamilyCare)}) excluded from charts</span></div>)}
       <div style={{
         display: "grid",
         gridTemplateColumns: "1fr",
@@ -1426,10 +1976,10 @@ function GivingTab({ categoryData }) {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 22, left: 6, bottom: 8 }}>
                 <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fill: "#888", fontSize: 10 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
-                <YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
+                <XAxis dataKey="month" tick={{ fill: "#888", fontSize: 12 }} axisLine={false} tickLine={false} angle={-45} textAnchor="end" height={60} />
+                <YAxis tick={{ fill: "#666", fontSize: 13 }} axisLine={false} tickLine={false} tickFormatter={formatCurrency} />
                 <Tooltip content={<TooltipBox scale="absolute" />} />
-                <Legend wrapperStyle={{ color: "#999", fontSize: 11 }} />
+                <Legend wrapperStyle={{ color: "#999", fontSize: 13 }} />
                 {subcats.map((key) => (<Bar key={key} dataKey={key} stackId="a" fill={GIVING_PALETTE[key]} radius={[2, 2, 0, 0]} maxBarSize={32} />))}
               </BarChart>
             </ResponsiveContainer>
@@ -1448,8 +1998,8 @@ function GivingTab({ categoryData }) {
               <div style={{ width: 12, height: 12, borderRadius: 3, background: GIVING_PALETTE[cat] }} />
               <span style={{ color: "#fff", fontSize: 20, fontWeight: 800 }}>{formatCurrency(totals[cat])}</span>
             </div>
-            <div style={{ color: "#666", fontSize: 11 }}>{grandTotal > 0 ? ((totals[cat] / grandTotal) * 100).toFixed(1) : 0}% of total</div>
-            <div style={{ color: "#888", fontSize: 11, marginTop: 4 }}>Avg: {formatCurrency(totals[cat] / chartData.length)}/mo</div>
+            <div style={{ color: "#666", fontSize: 13 }}>{grandTotal > 0 ? ((totals[cat] / grandTotal) * 100).toFixed(1) : 0}% of total</div>
+            <div style={{ color: "#888", fontSize: 13, marginTop: 4 }}>Avg: {formatCurrency(totals[cat] / chartData.length)}/mo</div>
           </Panel>
         ))}
       </div>
@@ -1470,7 +2020,7 @@ function GivingTab({ categoryData }) {
               ))}
             </div>
             <div>
-              <div style={{ color: "#4ecdc4", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Key Stats</div>
+              <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 12, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>Key Stats</div>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Total Family Care YTD</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{formatCurrency(totalFamilyCare)}</span></div>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Monthly Charity</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{formatCurrency(charityTotal / chartData.length)}/mo</span></div>
               <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}><span style={{ color: "#aaa", fontSize: 13 }}>Gifts Peak</span><span style={{ color: "#fff", fontSize: 13, fontWeight: 700 }}>{giftsPeak.month} ({formatCurrency(giftsPeak.value)})</span></div>
@@ -1646,10 +2196,10 @@ const DataGrid = React.memo(({ data, colorMap, selectedMonth, onMonthSelect, mon
                 boxSizing: "border-box"
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 2, background: "#4ecdc4" }} />
-                  <span style={{ color: "#4ecdc4", fontSize: 13, fontWeight: 700 }}>TOTAL SPENDING</span>
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: "rgba(255,255,255,0.95)" }} />
+                  <span style={{ color: "rgba(255,255,255,0.95)", fontSize: 13, fontWeight: 700 }}>TOTAL SPENDING</span>
                 </div>
-                <div style={{ color: "#4ecdc4", fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{percentOfIncome.toFixed(1)}%</div>
+                <div style={{ color: "rgba(255,255,255,0.95)", fontSize: 24, fontWeight: 800, marginBottom: 4 }}>{percentOfIncome.toFixed(1)}%</div>
                 <div style={{ color: "#888", fontSize: 12 }}>Avg: {formatCurrency(avgMonthly)}/mo</div>
               </div>
             );
@@ -1938,11 +2488,78 @@ const ControlPill = React.memo(({ label, value, setValue, options }) => {
 });
 ControlPill.displayName = 'ControlPill';
 
+// ============ BOTTOM NAVIGATION (Mobile Only) ============
+const BottomNavigation = React.memo(({ activeSection, setActiveSection, isMobile }) => {
+  if (!isMobile) return null;
+
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", icon: "◆" },
+    { id: "expenses", label: "Expenses", icon: "$" },
+    { id: "recurring", label: "Recurring", icon: "↻" },
+    { id: "budgeting", label: "Budgeting", icon: "○" }
+  ];
+
+  return (
+    <nav style={{
+      position: "fixed",
+      bottom: 0,
+      left: 0,
+      right: 0,
+      background: "#000000",
+      borderTop: `1px solid rgba(255,255,255,${OPACITY.border.default})`,
+      display: "flex",
+      justifyContent: "space-around",
+      alignItems: "stretch",
+      height: "70px",
+      paddingBottom: "env(safe-area-inset-bottom)",
+      zIndex: 1000
+    }}>
+      {navItems.map(item => {
+        const isActive = activeSection === item.id;
+        return (
+          <button
+            key={item.id}
+            onClick={() => setActiveSection(item.id)}
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: SPACING.xs,
+              background: "transparent",
+              border: "none",
+              color: isActive ? "rgba(255,255,255,0.95)" : COLORS.gray[600],
+              fontSize: FONT_SIZE.xs,
+              fontWeight: isActive ? 700 : 400,
+              cursor: "pointer",
+              transition: "color 0.2s ease",
+              minHeight: "44px",
+              textTransform: "uppercase",
+              letterSpacing: "0.5px"
+            }}
+          >
+            <span style={{
+              fontSize: FONT_SIZE['2xl'],
+              lineHeight: 1
+            }}>
+              {item.icon}
+            </span>
+            <span>{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+});
+BottomNavigation.displayName = 'BottomNavigation';
+
 // ============ MAIN DASHBOARD ============
 export default function SpendingDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [excludeFamily, setExcludeFamily] = useState(false);
   const [theme, setTheme] = useState("dark"); // "dark" or "light"
+  const [activeSection, setActiveSection] = useState("dashboard"); // "dashboard" | "expenses" | "recurring" | "budgeting"
 
   // Responsive hooks
   const isMobile = useMediaQuery(BREAKPOINTS.mobile);
@@ -2064,9 +2681,9 @@ export default function SpendingDashboard() {
 
   // Tab configuration with mapping to actual categoryData keys
   const tabs = [
-    { id: "overview", label: "Overview", dataKey: null, color: "#4ecdc4" },
+    { id: "overview", label: "Overview", dataKey: null, color: "rgba(255,255,255,0.95)" },
     { id: "last12", label: "Last 12 Months", dataKey: null, color: "#90be6d" },
-    { id: "last6", label: "Last 6 Months", dataKey: null, color: "#4ecdc4" },
+    { id: "last6", label: "Last 6 Months", dataKey: null, color: "rgba(255,255,255,0.95)" },
     { id: "last3", label: "Last 3 Months", dataKey: null, color: "#aa96da" },
     { id: "food", label: "Food & Dining", dataKey: "Food & Dining", color: "#ff6b6b" },
     { id: "giving", label: "Giving", dataKey: "Giving", color: "#f9c74f" },
@@ -2074,10 +2691,13 @@ export default function SpendingDashboard() {
     { id: "home", label: "Home", dataKey: "Home", color: "#aa96da" },
     { id: "shopping", label: "Shopping", dataKey: "Shopping", color: "#f38181" },
     { id: "subscriptions", label: "Subscriptions", dataKey: "Subscriptions", color: "#95e1d3" },
-    { id: "transportation", label: "Transportation", dataKey: "Transportation", color: "#4ecdc4" },
+    { id: "transportation", label: "Transportation", dataKey: "Transportation", color: "rgba(255,255,255,0.95)" },
     { id: "travel", label: "Travel", dataKey: "Travel", color: "#aa96da" },
     { id: "financial", label: "Financial", dataKey: "Financial", color: "#e17055" },
     { id: "fun", label: "Fun", dataKey: "Fun & Entertainment", color: "#fcbad3" },
+    { id: "recurring", label: "Recurring Expenses", dataKey: null, color: "#f9c74f" },
+    { id: "budgeting", label: "Budgeting", dataKey: null, color: "#90be6d" },
+    { id: "dashboard", label: "Dashboard", dataKey: null, color: "#aa96da" },
   ];
 
   // Debug: Log available category keys on data load
@@ -2087,18 +2707,74 @@ export default function SpendingDashboard() {
     }
   }, [categoryData]);
 
+  // Format current date
+  const today = new Date();
+  const dayName = today.toLocaleDateString('en-US', { weekday: 'short' });
+  const monthName = today.toLocaleDateString('en-US', { month: 'short' });
+  const dayNumber = today.getDate();
+  const formattedDate = `${dayName}, ${monthName} ${dayNumber}`;
+
   return (
     <div style={{
       background: isMobile && theme === "dark" ? "#000000" : currentTheme.background,
       minHeight: "100vh",
-      padding: isMobile ? `${SPACING['3xl']}px ${SPACING.md}px` : `${SPACING['7xl']}px ${SPACING['3xl']}px`,
-      fontFamily: "'Archivo Narrow', sans-serif",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
       transition: "background 0.3s ease"
     }}>
+      {/* Sticky Header */}
+      <div style={{
+        position: "sticky",
+        top: 0,
+        left: 0,
+        right: 0,
+        background: theme === "dark" ? "#000000" : "#ffffff",
+        borderBottom: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+        padding: `${SPACING['2xl']}px ${SPACING['3xl']}px`,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 100,
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)"
+      }}>
+        {/* Gear Icon - Left */}
+        <button
+          style={{
+            position: "absolute",
+            left: SPACING['3xl'],
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            padding: SPACING.md,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: theme === "dark" ? COLORS.gray[600] : "#666"
+          }}
+          aria-label="Settings"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+            <circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
+
+        {/* Date - Center */}
+        <div style={{
+          color: theme === "dark" ? COLORS.white : "#1a1a1a",
+          fontSize: FONT_SIZE.base,
+          fontWeight: 600,
+          letterSpacing: "0.5px"
+        }}>
+          {formattedDate}
+        </div>
+      </div>
+
       <div style={{
         maxWidth: "1400px",
         margin: "0 auto",
-        width: "100%"
+        width: "100%",
+        padding: isMobile ? `${SPACING['3xl']}px ${SPACING.md}px` : `${SPACING['7xl']}px ${SPACING['3xl']}px`
       }}>
         {/* Loading State */}
         {isLoading && (
@@ -2114,7 +2790,7 @@ export default function SpendingDashboard() {
               width: "48px",
               height: "48px",
               border: "4px solid rgba(78,205,196,0.2)",
-              borderTop: "4px solid #4ecdc4",
+              borderTop: "4px solid rgba(255,255,255,0.95)",
               borderRadius: "50%",
               animation: "spin 1s linear infinite"
             }} />
@@ -2167,68 +2843,12 @@ export default function SpendingDashboard() {
         {/* Main Content */}
         {!isLoading && (
           <>
-        <div style={{
-          marginBottom: SPACING['6xl'],
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: SPACING['3xl'],
-          position: "relative"
-        }}>
-          <h1 style={{
-            margin: 0,
-            fontSize: FONT_SIZE['3xl'],
-            fontWeight: 600,
-            color: currentTheme.text,
-            letterSpacing: "2px",
-            textTransform: "uppercase",
-            textAlign: "center",
-            transition: "color 0.3s ease"
-          }}>
-            {dateRange.yearLabel ? `${dateRange.yearLabel} Spending Analysis` : 'Spending Analysis'}
-          </h1>
-          {/* Theme Toggle Button */}
-          <button
-            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            style={{
-              position: "absolute",
-              top: 0,
-              right: 0,
-              background: currentTheme.panelBg,
-              border: `1px solid ${currentTheme.panelBorder}`,
-              borderRadius: "50%",
-              width: isMobile ? "44px" : "40px",
-              height: isMobile ? "44px" : "40px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              transition: "all 0.2s ease"
-            }}
-            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-          >
-            {theme === "dark" ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: currentTheme.text }}>
-                <circle cx="12" cy="12" r="5"></circle>
-                <line x1="12" y1="1" x2="12" y2="3"></line>
-                <line x1="12" y1="21" x2="12" y2="23"></line>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                <line x1="1" y1="12" x2="3" y2="12"></line>
-                <line x1="21" y1="12" x2="23" y2="12"></line>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
-              </svg>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: currentTheme.text }}>
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-              </svg>
-            )}
-          </button>
-        </div>
-        {/* Tab Navigation - Dropdown on mobile, buttons on desktop */}
-        {isMobile ? (
+
+        {/* SECTION: EXPENSES */}
+        {activeSection === "expenses" && (
+          <>
+            {/* Tab Navigation - Dropdown on mobile, buttons on desktop */}
+            {isMobile ? (
           <div style={{ marginBottom: SPACING['3xl'] }}>
             <select
               value={activeTab}
@@ -2493,9 +3113,65 @@ export default function SpendingDashboard() {
             )}
           />
         )}
+
+        {activeTab === "recurring" && (
+          <RecurringExpensesSection monthsData={monthsData} theme={theme} />
+        )}
+
+        {activeTab === "budgeting" && (
+          <BudgetingSection
+            monthsData={monthsData}
+            categoryData={categoryData}
+            groupMap={groupMap}
+            theme={theme}
+          />
+        )}
+
+        {activeTab === "dashboard" && (
+          <DashboardSection
+            monthsData={monthsData}
+            categoryData={categoryData}
+            groupMap={groupMap}
+            theme={theme}
+          />
+        )}
+          </>
+        )}
+
+        {/* SECTION: DASHBOARD */}
+        {activeSection === "dashboard" && (
+          <DashboardSection
+            monthsData={monthsData}
+            categoryData={categoryData}
+            groupMap={groupMap}
+            theme={theme}
+          />
+        )}
+
+        {/* SECTION: RECURRING EXPENSES */}
+        {activeSection === "recurring" && (
+          <RecurringExpensesSection monthsData={monthsData} theme={theme} />
+        )}
+
+        {/* SECTION: BUDGETING */}
+        {activeSection === "budgeting" && (
+          <BudgetingSection
+            monthsData={monthsData}
+            categoryData={categoryData}
+            groupMap={groupMap}
+            theme={theme}
+          />
+        )}
           </>
         )}
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      <BottomNavigation
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+        isMobile={isMobile}
+      />
     </div>
   );
 }
