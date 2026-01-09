@@ -1828,8 +1828,9 @@ const DashboardSection = React.memo(({ monthsData, categoryData, groupMap, theme
         borderRadius: RADIUS.xl,
         padding: SPACING['4xl'],
         border: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-        maxWidth: "95%",
-        margin: `0 auto ${SPACING['4xl']}px auto`
+        maxWidth: isMobile ? "100%" : "95%",
+        margin: `0 auto ${SPACING['4xl']}px auto`,
+        width: "100%"
       }}>
         {/* Subheader */}
         <div style={{
@@ -2717,7 +2718,11 @@ export default function SpendingDashboard() {
       background: isMobile && theme === "dark" ? "#000000" : currentTheme.background,
       minHeight: "100vh",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-      transition: "background 0.3s ease"
+      transition: "background 0.3s ease",
+      width: "100%",
+      maxWidth: "100vw",
+      overflowX: "hidden",
+      position: "relative"
     }}>
       {/* Sticky Header */}
       <div style={{
@@ -2725,21 +2730,23 @@ export default function SpendingDashboard() {
         top: 0,
         left: 0,
         right: 0,
+        width: "100%",
         background: theme === "dark" ? "#000000" : "#ffffff",
         borderBottom: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-        padding: `${SPACING['2xl']}px ${SPACING['3xl']}px`,
+        padding: `${SPACING['2xl']}px ${isMobile ? SPACING.md : SPACING['3xl']}px`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         zIndex: 100,
         backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)"
+        WebkitBackdropFilter: "blur(10px)",
+        boxSizing: "border-box"
       }}>
         {/* Gear Icon - Left */}
         <button
           style={{
             position: "absolute",
-            left: SPACING['3xl'],
+            left: isMobile ? SPACING.md : SPACING['3xl'],
             background: "transparent",
             border: "none",
             cursor: "pointer",
@@ -2772,7 +2779,8 @@ export default function SpendingDashboard() {
         maxWidth: "1400px",
         margin: "0 auto",
         width: "100%",
-        padding: isMobile ? `${SPACING['3xl']}px ${SPACING.md}px` : `${SPACING['7xl']}px ${SPACING['3xl']}px`
+        padding: isMobile ? `${SPACING['3xl']}px ${SPACING.md}px` : `${SPACING['7xl']}px ${SPACING['3xl']}px`,
+        boxSizing: "border-box"
       }}>
         {/* Loading State */}
         {isLoading && (
