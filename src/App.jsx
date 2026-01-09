@@ -1827,11 +1827,9 @@ const DashboardSection = React.memo(({ monthsData, categoryData, groupMap, theme
         background: theme === "dark" ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.03)",
         borderRadius: RADIUS.xl,
         padding: SPACING['4xl'],
-        marginBottom: SPACING['4xl'],
         border: `1px solid ${theme === "dark" ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
         maxWidth: "95%",
-        margin: "0 auto",
-        marginBottom: SPACING['4xl']
+        margin: `0 auto ${SPACING['4xl']}px auto`
       }}>
         {/* Subheader */}
         <div style={{
